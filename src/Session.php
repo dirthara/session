@@ -31,18 +31,15 @@ final class Session
     public function put(string $key, mixed $value): void
     {
         $this->state->values[$key] = $value;
-        $this->state->changed = true;
     }
 
     public function remove(string $key): void
     {
         unset($this->state->values[$key]);
-        $this->state->changed = true;
     }
 
     public function clear(): void
     {
         $this->state->values = [];
-        $this->state->changed = true;
     }
 }

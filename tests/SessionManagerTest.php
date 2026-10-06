@@ -17,6 +17,8 @@ use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
+use Dirthara\Session\Tests\Fixtures\Address;
+use Dirthara\Session\Tests\Fixtures\Customer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Dirthara\Session\Tests\Fixtures\TestClock;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -674,7 +676,7 @@ final class SessionManagerTest extends TestCase
     {
         $session = $this->filled();
         $this->manager->save($session);
-        $session->put('user', 42);
+        $session->put('user', 43);
 
         self::assertTrue($this->manager->save($session));
         self::assertSame(
@@ -710,10 +712,36 @@ final class SessionManagerTest extends TestCase
     /**
      * @return iterable<string, array{callable(Session): void}>
      */
+    public static function nonChanges(): iterable
+    {
+        yield 'only reading' => [static fn(Session $session) => $session->get('user')];
+        yield 'a put of the same value' => [static fn(Session $session) => $session->put('user', 42)];
+        yield 'a removal of a missing key' => [static fn(Session $session) => $session->remove('missing')];
+    }
+
+    /**
+     * @param callable(Session): void $change
+     */
+    #[Test]
+    #[DataProvider('nonChanges')]
+    public function it_touches_a_session_whose_payload_did_not_change(callable $change): void
+    {
+        $this->manager->save($this->filled());
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+
+        $change($loaded);
+
+        self::assertTrue($this->manager->save($loaded));
+        self::assertSame('touch sessionid-0000000000000000000001', $this->store->calls[2]);
+    }
+
+    /**
+     * @return iterable<string, array{callable(Session): void}>
+     */
     public static function changes(): iterable
     {
-        yield 'a put' => [static fn(Session $session) => $session->put('locale', 'en_GB')];
-        yield 'a put of the same value' => [static fn(Session $session) => $session->put('user', 42)];
+        yield 'a put of a new key' => [static fn(Session $session) => $session->put('theme', 'dark')];
+        yield 'a put of another value' => [static fn(Session $session) => $session->put('locale', 'nl_NL')];
         yield 'a removal' => [static fn(Session $session) => $session->remove('locale')];
     }
 
@@ -725,6 +753,7 @@ final class SessionManagerTest extends TestCase
     public function it_replaces_a_session_whose_values_changed(callable $change): void
     {
         $session = $this->filled();
+        $session->put('locale', 'en_GB');
         $this->manager->save($session);
         $loaded = $this->loaded('sessionid-0000000000000000000001');
 
@@ -732,6 +761,55 @@ final class SessionManagerTest extends TestCase
 
         self::assertTrue($this->manager->save($loaded));
         self::assertSame('replace sessionid-0000000000000000000001', $this->store->calls[2]);
+    }
+
+    #[Test]
+    public function it_saves_a_change_to_an_object_in_the_session_without_a_put(): void
+    {
+        $session = $this->manager->create();
+        $session->put('customer', new Customer('Ada', new Address('Amsterdam')));
+        $this->manager->save($session);
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+
+        $this->customer($loaded)->name = 'Grace';
+
+        self::assertTrue($this->manager->save($loaded));
+        self::assertSame('replace sessionid-0000000000000000000001', $this->store->calls[2]);
+        self::assertSame('Grace', $this->customer($this->loaded('sessionid-0000000000000000000001'))->name);
+    }
+
+    #[Test]
+    public function it_saves_a_change_to_a_nested_object_in_the_session_without_a_put(): void
+    {
+        $session = $this->manager->create();
+        $session->put('customer', new Customer('Ada', new Address('Amsterdam')));
+        $this->manager->save($session);
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+
+        $this->customer($loaded)->address->city = 'Utrecht';
+
+        self::assertTrue($this->manager->save($loaded));
+        self::assertSame('replace sessionid-0000000000000000000001', $this->store->calls[2]);
+        self::assertSame('Utrecht', $this->customer($this->loaded('sessionid-0000000000000000000001'))->address->city);
+    }
+
+    #[Test]
+    public function it_saves_a_change_to_an_object_the_same_whether_or_not_another_key_changed(): void
+    {
+        $session = $this->manager->create();
+        $session->put('customer', new Customer('Ada', new Address('Amsterdam')));
+        $this->manager->save($session);
+        $alone = $this->loaded('sessionid-0000000000000000000001');
+        $withAnotherChange = $this->loaded('sessionid-0000000000000000000001');
+
+        $this->customer($alone)->name = 'Grace';
+        $this->manager->save($alone);
+        $aloneResult = $this->customer($this->loaded('sessionid-0000000000000000000001'));
+        $this->customer($withAnotherChange)->name = 'Grace';
+        $withAnotherChange->put('locale', 'en_GB');
+        $this->manager->save($withAnotherChange);
+
+        self::assertEquals($aloneResult, $this->customer($this->loaded('sessionid-0000000000000000000001')));
     }
 
     #[Test]
@@ -1150,6 +1228,15 @@ final class SessionManagerTest extends TestCase
         $session->put('user', 42);
 
         return $session;
+    }
+
+    private function customer(Session $session): Customer
+    {
+        // @mago-expect analysis:mixed-assignment The assertion narrows the session value
+        $customer = $session->get('customer');
+        self::assertInstanceOf(Customer::class, $customer);
+
+        return $customer;
     }
 
     private function loaded(string $id): Session

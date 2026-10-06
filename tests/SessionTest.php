@@ -12,7 +12,6 @@ use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 #[CoversClass(Session::class)]
 #[CoversClass(SessionState::class)]
@@ -104,48 +103,6 @@ final class SessionTest extends TestCase
 
         self::assertSame([], $state->values);
         self::assertSame(self::ID, $session->id->value);
-    }
-
-    #[Test]
-    public function it_starts_unchanged(): void
-    {
-        self::assertFalse(new SessionState(new SessionId(self::ID), storedId: null)->changed);
-    }
-
-    /**
-     * @return iterable<string, array{callable(Session): void}>
-     */
-    public static function changes(): iterable
-    {
-        yield 'a put of the same value' => [static fn(Session $session) => $session->put('user', 42)];
-        yield 'a removal of a missing key' => [static fn(Session $session) => $session->remove('missing')];
-        yield 'clearing' => [static fn(Session $session) => $session->clear()];
-    }
-
-    /**
-     * @param callable(Session): void $change
-     */
-    #[Test]
-    #[DataProvider('changes')]
-    public function it_marks_its_state_changed_by_a_put_a_removal_or_clearing(callable $change): void
-    {
-        $state = new SessionState(new SessionId(self::ID), storedId: null, values: ['user' => 42]);
-
-        $change(new Session($state));
-
-        self::assertTrue($state->changed);
-    }
-
-    #[Test]
-    public function it_leaves_its_state_unchanged_when_it_is_only_read(): void
-    {
-        $state = new SessionState(new SessionId(self::ID), storedId: null, values: ['user' => 42]);
-        $session = new Session($state);
-
-        $session->has('user');
-        $session->get('user');
-
-        self::assertFalse($state->changed);
     }
 
     /**

@@ -55,12 +55,27 @@ Saving turns the values into a payload with the manager's [serialiser](serialisa
 into copies. A value the serialiser cannot handle, such as a closure, makes `save()` throw a
 `SessionSerialisationException` before anything is stored.
 
+### Objects in a session
+
+A session holds the objects put in it, not snapshots of them. Saving serialises the values as they are at that moment,
+so a change to an object in the session is saved without putting it again:
+
+```php
+$session->get('cart')->add($product);
+
+$sessions->save($session);
+```
+
+Whether a change is saved never depends on whether another key changed in the same request.
+
 ## Expiry
 
 Every save stores the session until its idle lifetime has passed, measured from the moment of saving. A session whose
 values did not change since it was loaded or last saved is not written again: the manager only moves its expiry, which
-is far cheaper for a store such as a database. Any `put()`, `remove()`, or `clear()` counts as a change, even one that
-puts the value that was already there. The lifetime comes from the configuration:
+is far cheaper for a store such as a database. To tell, every save serialises the values and compares the payload byte
+for byte with the one it loaded or last stored. A `put()` of the value that was already there is no change, and a
+change to an object in the session is one, even without any call on the session. The lifetime comes from the
+configuration:
 
 ```php
 $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));

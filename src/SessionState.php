@@ -19,8 +19,8 @@ final class SessionState
         public SessionId $id,
         public ?SessionId $storedId,
         public array $values = [],
-        public bool $changed = false,
         public ?DateTimeImmutable $createdAt = null,
         public ?DateTimeImmutable $expiresAt = null,
+        public ?string $payload = null,
     ) {}
 }

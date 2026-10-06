@@ -12,8 +12,13 @@ has to decide how to write PHP values.
 ## The native serialiser
 
 `NativeSessionSerialiser` uses PHP's `serialize()` and `unserialize()`, so a session can hold any value PHP can
-serialise: scalars, `null`, arrays, enums, and objects with the objects they hold. The values come back as copies, so
-changing an object after it was put in a session does not change the session until the object is put and saved again.
+serialise: scalars, `null`, arrays, enums, and objects with the objects they hold. Values are serialised when the
+session is saved, so what is stored is each object as it is at that moment, and loading gives back copies: two sessions
+loaded for the same ID never share an object.
+
+The manager also compares serialised payloads to decide whether a session changed. A serialiser that turns equal
+values into the same payload every time, as `NativeSessionSerialiser` does, lets an unchanged session be touched
+rather than written again; one that does not still works, but writes the whole session on every save.
 
 | Failure | Thrown as | What the manager does |
 | --- | --- | --- |

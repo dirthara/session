@@ -69,6 +69,7 @@ final readonly class SessionManager implements SessionManagerContract
                 values: $values,
                 createdAt: $this->utc($stored->createdAt),
                 expiresAt: $this->utc($stored->expiresAt),
+                payload: $stored->payload,
             ),
         );
     }
@@ -136,16 +137,14 @@ final readonly class SessionManager implements SessionManagerContract
      */
     private function update(SessionState $state, DateTimeImmutable $createdAt, DateTimeImmutable $expiresAt): bool
     {
-        $updated = $state->changed
-            ? $this->store->replace(
-                $state->id,
-                new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt),
-            )
-            : $this->store->touch($state->id, $expiresAt);
+        $payload = $this->serialiser->serialise($state->values);
+        $updated = $payload === $state->payload
+            ? $this->store->touch($state->id, $expiresAt)
+            : $this->store->replace($state->id, new StoredSession($payload, $createdAt, $expiresAt));
 
         if ($updated) {
             $state->expiresAt = $expiresAt;
-            $state->changed = false;
+            $state->payload = $payload;
         }
 
         return $updated;
@@ -156,18 +155,18 @@ final readonly class SessionManager implements SessionManagerContract
      */
     private function move(SessionState $state, DateTimeImmutable $createdAt, DateTimeImmutable $expiresAt): bool
     {
-        $stored = new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt);
+        $payload = $this->serialiser->serialise($state->values);
 
         if ($state->storedId !== null && !$this->store->delete($state->storedId)) {
             return false;
         }
 
         $state->storedId = null;
-        $this->store->write($state->id, $stored);
+        $this->store->write($state->id, new StoredSession($payload, $createdAt, $expiresAt));
         $state->storedId = $state->id;
         $state->createdAt = $createdAt;
         $state->expiresAt = $expiresAt;
-        $state->changed = false;
+        $state->payload = $payload;
 
         return true;
     }
@@ -177,6 +176,7 @@ final readonly class SessionManager implements SessionManagerContract
         if ($state->storedId !== null && $this->store->delete($state->storedId)) {
             $state->storedId = null;
             $state->expiresAt = null;
+            $state->payload = null;
         }
 
         return false;
