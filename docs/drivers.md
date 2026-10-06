@@ -166,3 +166,34 @@ final readonly class DatabaseSessionDriver implements SessionDriver
 
 The store writes the payload as it is, and hands back exactly what it wrote. It never has to look inside: the
 [serialiser](serialisation.md) owns the format, and the backend owns who may write to it.
+
+## Testing a driver
+
+`Dirthara\Session\Testing\SessionStoreTestCase` holds the tests every store has to pass: reading and writing, keeping
+every byte of a payload and every moment to the millisecond, replacing, touching, and deleting only what is there, and
+pruning by expiry. The memory store is tested with it too. Extend it in the driver package's tests, and return a new,
+empty store from `createStore()`:
+
+```php
+use Dirthara\Session\Contract\SessionStore;
+use Dirthara\Session\Testing\SessionStoreTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+
+#[CoversClass(DatabaseSessionStore::class)]
+final class DatabaseSessionStoreTest extends SessionStoreTestCase
+{
+    protected function createStore(): SessionStore
+    {
+        return new DatabaseSessionStore(connection: $this->connection(), table: 'sessions');
+    }
+}
+```
+
+Add the store's own tests to the same class, such as how it behaves when its backend is unavailable. The test case
+needs PHPUnit, which a driver package already has as a development dependency; this package only suggests it.
+
+:::note
+The contract tests run every operation one at a time, so they cannot prove that `replace()`, `touch()`, and `delete()`
+check and change in one step. Test that against the real backend, for example by deleting a session between two
+connections.
+:::
