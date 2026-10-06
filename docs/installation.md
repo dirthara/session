@@ -17,7 +17,7 @@ runtime dependency, a PSR interface package it uses:
 :::note
 `psr/clock` holds only the interface. The session manager needs an implementation
 of `Psr\Clock\ClockInterface` to read the current time from, which this package
-does not ship; see [getting started](getting-started.md#3-a-clock).
+does not ship; see [getting started](getting-started.md#4-a-clock).
 :::
 
 ## Package installation

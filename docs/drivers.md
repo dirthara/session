@@ -7,9 +7,9 @@ description: The session store contract, the memory store, drivers, configuratio
 
 ## The store contract
 
-A `SessionStore` keeps sessions under their IDs. The manager does everything else: it generates IDs, decides when a
-session has expired, and moves a session to its new ID. A store sees only valid `SessionId` objects and
-`StoredSession` objects, each holding the session's `values`, keyed by string, and the `expiresAt` moment it expires.
+A `SessionStore` keeps sessions under their IDs. The manager does everything else: it generates IDs, serialises the
+values, decides when a session has expired, and moves a session to its new ID. A store sees only valid `SessionId`
+objects and `StoredSession` objects, each holding the session's string `payload` and the `expiresAt` moment it expires.
 
 | Method | Does |
 | --- | --- |
@@ -33,8 +33,6 @@ process:
 - Its sessions are lost when the process ends, and other processes cannot see them.
 - It never removes expired sessions. They stay in memory until something loads or deletes them, so a long-running
   process that creates many sessions keeps growing.
-- It keeps the values themselves rather than copies. An object stored in a session is the same object in every
-  session loaded from it, so changing it changes the stored session without a save.
 - It never fails.
 
 ## Drivers
@@ -68,11 +66,17 @@ The registry implements two contracts, so code can depend on only what it uses: 
 ```php
 use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
+use Dirthara\Session\Serialiser\NativeSessionSerialiser;
 use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 
-$factory = new SessionManagerFactory($drivers, new RandomSessionIdGenerator(), $clock);
+$factory = new SessionManagerFactory(
+    $drivers,
+    new RandomSessionIdGenerator(),
+    new NativeSessionSerialiser(),
+    $clock,
+);
 
 $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 ```
@@ -83,7 +87,8 @@ driver that is not registered throws a `SessionDriverNotFoundException`. Code th
 the `SessionManagerFactory` contract in `Dirthara\Session\Contract`, and code that works with sessions on the
 `SessionManager` contract.
 
-A `SessionManager` can also be constructed directly, from a store, an ID generator, a clock, and a `Lifetime`.
+A `SessionManager` can also be constructed directly, from a store, an ID generator, a serialiser, a clock, and a
+`Lifetime`.
 
 ## Configuration
 
@@ -143,6 +148,5 @@ final readonly class DatabaseSessionDriver implements SessionDriver
 }
 ```
 
-The store decides how to write the values. Whatever it uses to turn them into something it can write, it reads back
-from the backend, so a store that restores PHP objects from its backend has to be sure that nothing else can write
-there.
+The store writes the payload as it is, and hands back exactly what it wrote. It never has to look inside: the
+[serialiser](serialisation.md) owns the format, and the backend owns who may write to it.

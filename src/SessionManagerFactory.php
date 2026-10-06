@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Dirthara\Session;
 
 use Psr\Clock\ClockInterface;
+use Dirthara\Session\Contract\SessionSerialiser;
 use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Contract\SessionDriverProvider;
@@ -16,6 +17,7 @@ final readonly class SessionManagerFactory implements SessionManagerFactoryContr
     public function __construct(
         private SessionDriverProvider $drivers,
         private SessionIdGenerator $ids,
+        private SessionSerialiser $serialiser,
         private ClockInterface $clock,
     ) {}
 
@@ -23,6 +25,6 @@ final readonly class SessionManagerFactory implements SessionManagerFactoryContr
     {
         $store = $this->drivers->driver($configuration->driver)->create($configuration);
 
-        return new SessionManager($store, $this->ids, $this->clock, $configuration->lifetime);
+        return new SessionManager($store, $this->ids, $this->serialiser, $this->clock, $configuration->lifetime);
     }
 }

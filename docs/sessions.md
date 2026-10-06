@@ -44,9 +44,9 @@ $session->remove('user');
 
 The default is used only for a missing key, so a stored `null`, `0`, or `''` is returned as it is.
 
-A store decides how it keeps values. The memory store keeps them as they are; a store that writes them elsewhere has to
-turn them into something it can write, and can limit what it accepts. Keep values to scalars and arrays of them unless
-the store documents more.
+Saving turns the values into a payload with the manager's [serialiser](serialisation.md), and loading turns them back
+into copies. A value the serialiser cannot handle, such as a closure, makes `save()` throw a
+`SessionSerialisationException` before anything is stored.
 
 ## Expiry
 

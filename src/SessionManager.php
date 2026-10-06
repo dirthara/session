@@ -10,9 +10,11 @@ use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\Contract\SessionStore;
 use Dirthara\Session\ValueObject\SessionId;
 use Dirthara\Session\ValueObject\StoredSession;
+use Dirthara\Session\Contract\SessionSerialiser;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Exception\ForeignSessionException;
 use Dirthara\Session\Contract\Session as SessionContract;
+use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
 
 use function sprintf;
@@ -22,6 +24,7 @@ final readonly class SessionManager implements SessionManagerContract
     public function __construct(
         private SessionStore $store,
         private SessionIdGenerator $ids,
+        private SessionSerialiser $serialiser,
         private ClockInterface $clock,
         private Lifetime $lifetime,
     ) {}
@@ -45,11 +48,18 @@ final readonly class SessionManager implements SessionManagerContract
             return null;
         }
 
-        return new Session($id, $this->ids, $stored->values);
+        try {
+            $values = $this->serialiser->deserialise($stored->payload);
+        } catch (SessionSerialisationException) {
+            return null;
+        }
+
+        return new Session($id, $this->ids, $values);
     }
 
     /**
      * @throws ForeignSessionException
+     * @throws SessionSerialisationException
      */
     public function save(SessionContract $session): void
     {
@@ -57,7 +67,9 @@ final readonly class SessionManager implements SessionManagerContract
             throw ForeignSessionException::cannotBeSaved($session::class);
         }
 
-        $this->store->write($session->id, new StoredSession($session->values, $this->expiry()));
+        $payload = $this->serialiser->serialise($session->values);
+
+        $this->store->write($session->id, new StoredSession($payload, $this->expiry()));
 
         foreach ($session->replacedIds as $replacedId) {
             $this->store->delete($replacedId);

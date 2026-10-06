@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Tests;
 
+use stdClass;
+use DateTimeImmutable;
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
 use Dirthara\Session\SessionManager;
@@ -20,8 +22,10 @@ use Dirthara\Session\Exception\HasExceptionContext;
 use Dirthara\Session\Tests\Fixtures\ForeignSession;
 use Dirthara\Session\Driver\Memory\MemorySessionStore;
 use Dirthara\Session\Exception\ForeignSessionException;
+use Dirthara\Session\Serialiser\NativeSessionSerialiser;
 use Dirthara\Session\Tests\Fixtures\ContextualException;
 use Dirthara\Session\Tests\Fixtures\RecordingSessionStore;
+use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
 #[CoversClass(SessionManager::class)]
@@ -30,6 +34,8 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[UsesClass(Lifetime::class)]
 #[UsesClass(SessionId::class)]
 #[UsesClass(StoredSession::class)]
+#[UsesClass(NativeSessionSerialiser::class)]
+#[UsesClass(SessionSerialisationException::class)]
 #[UsesClass(MemorySessionStore::class)]
 #[UsesClass(ForeignSessionException::class)]
 #[UsesTrait(HasExceptionContext::class)]
@@ -48,6 +54,7 @@ final class SessionManagerTest extends TestCase
         $this->manager = new SessionManager(
             $this->store,
             new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
             $this->clock,
             new Lifetime(Duration::hours(2)),
         );
@@ -94,6 +101,63 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
+    public function it_stores_the_values_as_a_serialised_payload(): void
+    {
+        $session = $this->manager->create();
+        $session->put('user', 42);
+
+        $this->manager->save($session);
+
+        self::assertSame(
+            'a:1:{s:4:"user";i:42;}',
+            $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'))?->payload,
+        );
+    }
+
+    #[Test]
+    public function it_keeps_a_change_to_a_stored_object_out_of_the_store_until_it_is_saved(): void
+    {
+        $user = new stdClass();
+        $user->name = 'Ada';
+        $session = $this->manager->create();
+        $session->put('user', $user);
+        $this->manager->save($session);
+
+        $user->name = 'Grace';
+
+        // @mago-expect analysis:mixed-assignment The assertion narrows the loaded value
+        $loaded = $this->loaded('sessionid-0000000000000000000001')->get('user');
+        self::assertInstanceOf(stdClass::class, $loaded);
+        self::assertSame('Ada', $loaded->name);
+    }
+
+    #[Test]
+    public function it_loads_nothing_for_a_payload_it_cannot_deserialise(): void
+    {
+        $id = new SessionId('sessionid-0000000000000000000009');
+        $this->store->inner->write(
+            $id,
+            new StoredSession('not a payload', new DateTimeImmutable('2026-10-05 14:00:00')),
+        );
+
+        self::assertNull($this->manager->load($id));
+    }
+
+    #[Test]
+    public function it_refuses_a_value_it_cannot_serialise_before_it_touches_the_store(): void
+    {
+        $session = $this->manager->create();
+        $session->put('callback', static fn(): int => 42);
+
+        try {
+            $this->manager->save($session);
+            self::fail('A value that cannot be serialised was saved.');
+        } catch (SessionSerialisationException) {
+            self::assertSame([], $this->store->calls);
+        }
+    }
+
+    #[Test]
     public function it_stores_a_session_until_its_lifetime_has_passed(): void
     {
         $this->manager->save($this->manager->create());
@@ -110,6 +174,7 @@ final class SessionManagerTest extends TestCase
         $manager = new SessionManager(
             $this->store,
             new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
             $this->clock,
             new Lifetime(Duration::milliseconds(1500)),
         );
@@ -127,6 +192,7 @@ final class SessionManagerTest extends TestCase
         $manager = new SessionManager(
             $this->store,
             new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
             $this->clock,
             new Lifetime(Duration::hours(400 * 24)),
         );

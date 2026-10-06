@@ -14,12 +14,12 @@ use Dirthara\Session\ValueObject\StoredSession;
 final class StoredSessionTest extends TestCase
 {
     #[Test]
-    public function it_carries_the_values_and_the_moment_they_expire(): void
+    public function it_carries_the_payload_and_the_moment_it_expires(): void
     {
         $expiresAt = new DateTimeImmutable('2026-10-05 14:00:00');
-        $session = new StoredSession(['user' => 42, 'flash' => null], $expiresAt);
+        $session = new StoredSession('a:1:{s:4:"user";i:42;}', $expiresAt);
 
-        self::assertSame(['user' => 42, 'flash' => null], $session->values);
+        self::assertSame('a:1:{s:4:"user";i:42;}', $session->payload);
         self::assertSame($expiresAt, $session->expiresAt);
     }
 }

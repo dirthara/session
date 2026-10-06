@@ -22,6 +22,7 @@ use Dirthara\Session\Driver\SessionDriverRegistry;
 use Dirthara\Session\Exception\HasExceptionContext;
 use Dirthara\Session\Driver\Memory\MemorySessionStore;
 use Dirthara\Session\Driver\Memory\MemorySessionDriver;
+use Dirthara\Session\Serialiser\NativeSessionSerialiser;
 use Dirthara\Session\Tests\Fixtures\RecordingSessionDriver;
 use Dirthara\Session\Exception\SessionDriverNotFoundException;
 use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
@@ -33,6 +34,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[UsesClass(SessionId::class)]
 #[UsesClass(StoredSession::class)]
 #[UsesClass(SessionManager::class)]
+#[UsesClass(NativeSessionSerialiser::class)]
 #[UsesClass(MemorySessionStore::class)]
 #[UsesClass(MemorySessionDriver::class)]
 #[UsesClass(SessionConfiguration::class)]
@@ -80,7 +82,12 @@ final class SessionManagerFactoryTest extends TestCase
         $drivers = new SessionDriverRegistry();
         $drivers->register('memory', new MemorySessionDriver());
         $clock = new TestClock();
-        $factory = new SessionManagerFactory($drivers, new SequentialSessionIdGenerator(), $clock);
+        $factory = new SessionManagerFactory(
+            $drivers,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $clock,
+        );
         $manager = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));
         $session = $manager->create();
         $manager->save($session);
@@ -119,6 +126,11 @@ final class SessionManagerFactoryTest extends TestCase
 
     private function factory(SessionDriverRegistry $drivers): SessionManagerFactory
     {
-        return new SessionManagerFactory($drivers, new SequentialSessionIdGenerator(), new TestClock());
+        return new SessionManagerFactory(
+            $drivers,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            new TestClock(),
+        );
     }
 }

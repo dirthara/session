@@ -18,7 +18,7 @@ final class Session implements SessionContract
     public private(set) array $replacedIds = [];
 
     /**
-     * @param array<string, mixed> $values
+     * @param array<array-key, mixed> $values
      */
     public function __construct(
         public private(set) SessionId $id,

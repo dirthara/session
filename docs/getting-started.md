@@ -5,8 +5,8 @@ sidebar_position: 3
 description: Create a session manager from a driver, and load, use, and save a session in a request.
 ---
 
-This page wires every piece together: drivers, an ID generator, a clock, a factory, a manager, and the cookie that
-carries the session ID. Each piece has its own page with the details.
+This page wires every piece together: drivers, an ID generator, a serialiser, a clock, a factory, a manager, and the
+cookie that carries the session ID. Each piece has its own page with the details.
 
 ## 1. Drivers
 
@@ -37,7 +37,20 @@ $ids = new RandomSessionIdGenerator();
 `RandomSessionIdGenerator` takes 256 bits from PHP's cryptographically secure random source. See
 [session IDs](session-ids.md).
 
-## 3. A clock
+## 3. A serialiser
+
+The manager turns a session's values into a payload for the store, and back:
+
+```php
+use Dirthara\Session\Serialiser\NativeSessionSerialiser;
+
+$serialiser = new NativeSessionSerialiser();
+```
+
+`NativeSessionSerialiser` uses PHP's own serialisation; read [serialisation](serialisation.md) before using it with a
+store that anything else can write to.
+
+## 4. A clock
 
 The manager reads the current time from a PSR-20 clock to decide when sessions expire. Any implementation of
 `Psr\Clock\ClockInterface` works, such as one the application already has, or this one:
@@ -57,7 +70,7 @@ final readonly class SystemClock implements ClockInterface
 Tests can pass a clock that returns a fixed time and move it forward, so they do not have to wait for a session to
 expire.
 
-## 4. A manager
+## 5. A manager
 
 ```php
 use Dirthara\Session\Config\SessionConfiguration;
@@ -65,7 +78,7 @@ use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 
-$factory = new SessionManagerFactory($drivers, $ids, new SystemClock());
+$factory = new SessionManagerFactory($drivers, $ids, $serialiser, new SystemClock());
 
 $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 ```
@@ -73,7 +86,7 @@ $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Dur
 The configuration names the driver, sets how long a session lives after it was last saved, and carries the driver's
 options. Each call to `create()` asks the driver for a new store.
 
-## 5. A request
+## 6. A request
 
 The package does not read or write cookies. At the start of a request, load the session the visitor's cookie names,
 or create one; at the end, save it and send its ID back:

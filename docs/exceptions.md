@@ -1,7 +1,7 @@
 ---
 id: exceptions
 title: Exceptions
-sidebar_position: 7
+sidebar_position: 8
 description: Every exception Dirthara Session throws, and when.
 ---
 
@@ -36,6 +36,7 @@ These are thrown while an application is being set up, and point to a mistake in
 | Exception | Extends | Thrown when |
 | --- | --- | --- |
 | `InvalidSessionIdException` | `InvalidArgumentException` | A value is not a valid session ID. Its context holds only the length of the value. See [session IDs](session-ids.md). |
+| `SessionSerialisationException` | `RuntimeException` | Session values cannot be serialised, or a payload cannot be deserialised. `load()` treats an unreadable payload as a missing session. See [serialisation](serialisation.md). |
 | `SessionIdGenerationException` | `RuntimeException` | The random source fails to provide the bytes for a new session ID. See [session IDs](session-ids.md#generating-ids). |
 | `ForeignSessionException` | `InvalidArgumentException` | A manager is asked to save a `Session` that no manager created or loaded. See [sessions](sessions.md#saving-foreign-sessions). |
 
