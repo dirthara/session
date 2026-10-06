@@ -34,9 +34,18 @@ final readonly class SessionStoreContract
             'it replaces a session only under an ID it has' => $this->replacesOnlyExisting(...),
             'it does not replace a session it deleted' => $this->doesNotReplaceDeleted(...),
             'it touches only the expiry of a session under an ID it has' => $this->touchesOnlyExpiry(...),
-            'it keeps an expired session until it is pruned' => $this->keepsExpired(...),
             'it deletes the session under an ID and keeps the others' => $this->deletesOne(...),
             'it reports that it had no session under an ID it deletes' => $this->reportsMissingDelete(...),
+        ];
+    }
+
+    /**
+     * @return array<string, Closure(SessionStore): void>
+     */
+    public function pruningChecks(): array
+    {
+        return [
+            'it keeps an expired session until it is pruned' => $this->keepsExpired(...),
             'it prunes the sessions that expire by the given moment and counts them' => $this->prunesExpired(...),
             'it prunes by the expiry a touch gave a session' => $this->prunesByTouchedExpiry(...),
         ];
@@ -164,7 +173,7 @@ final readonly class SessionStoreContract
      */
     private function touchesOnlyExpiry(SessionStore $store): void
     {
-        $later = $this->moment('2026-10-05 16:00:00.500');
+        $later = $this->moment('2100-01-01 16:00:00.500');
         $store->write($this->id(self::FIRST_ID), $this->stored('user 1'));
 
         $this->expect($store->touch($this->id(self::FIRST_ID), $later), 'touch() returns true for an ID it has');
@@ -173,7 +182,7 @@ final readonly class SessionStoreContract
             'touch() returns false for an ID it does not have',
         );
         $this->expectStored(
-            new StoredSession('user 1', $this->moment('2026-10-05 10:00:00.125'), $later),
+            new StoredSession('user 1', $this->moment('2100-01-01 10:00:00.125'), $later),
             $store->read($this->id(self::FIRST_ID)),
             'touch() changes the expiry and keeps the payload and the creation moment',
         );
@@ -280,10 +289,10 @@ final readonly class SessionStoreContract
     private function prunesByTouchedExpiry(SessionStore $store): void
     {
         $store->write($this->id(self::FIRST_ID), $this->stored('user 1'));
-        $store->touch($this->id(self::FIRST_ID), $this->moment('2026-10-05 18:00:00'));
+        $store->touch($this->id(self::FIRST_ID), $this->moment('2100-01-01 18:00:00'));
 
         $this->expect(
-            $store->prune($this->moment('2026-10-05 17:00:00')) === 0
+            $store->prune($this->moment('2100-01-01 17:00:00')) === 0
             && $store->read($this->id(self::FIRST_ID)) !== null,
             'prune() uses the expiry that touch() gave a session',
         );
@@ -298,8 +307,8 @@ final readonly class SessionStoreContract
     {
         return new StoredSession(
             $payload,
-            $this->moment('2026-10-05 10:00:00.125'),
-            $this->moment('2026-10-05 14:00:00.375'),
+            $this->moment('2100-01-01 10:00:00.125'),
+            $this->moment('2100-01-01 14:00:00.375'),
         );
     }
 

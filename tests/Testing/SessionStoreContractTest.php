@@ -10,12 +10,14 @@ use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
+use Dirthara\Session\Tests\Fixtures\TestClock;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Dirthara\Session\ValueObject\StoredSession;
 use Dirthara\Session\Testing\SessionStoreContract;
 use Dirthara\Session\Exception\HasExceptionContext;
 use Dirthara\Session\Driver\Memory\MemorySessionStore;
 use Dirthara\Session\Tests\Fixtures\FlawedSessionStore;
+use Dirthara\Session\Tests\Fixtures\ExpiringSessionStore;
 use Dirthara\Session\Exception\SessionStoreContractException;
 
 use function array_keys;
@@ -41,14 +43,34 @@ final class SessionStoreContractTest extends TestCase
                 'it replaces a session only under an ID it has',
                 'it does not replace a session it deleted',
                 'it touches only the expiry of a session under an ID it has',
-                'it keeps an expired session until it is pruned',
                 'it deletes the session under an ID and keeps the others',
                 'it reports that it had no session under an ID it deletes',
-                'it prunes the sessions that expire by the given moment and counts them',
-                'it prunes by the expiry a touch gave a session',
             ],
             array_keys(new SessionStoreContract()->checks()),
         );
+    }
+
+    #[Test]
+    public function it_names_every_pruning_check(): void
+    {
+        self::assertSame(
+            [
+                'it keeps an expired session until it is pruned',
+                'it prunes the sessions that expire by the given moment and counts them',
+                'it prunes by the expiry a touch gave a session',
+            ],
+            array_keys(new SessionStoreContract()->pruningChecks()),
+        );
+    }
+
+    #[Test]
+    public function it_checks_only_moments_far_in_the_future_for_every_store(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        foreach (new SessionStoreContract()->checks() as $check) {
+            $check(new ExpiringSessionStore(new TestClock('2099-12-31 00:00:00')));
+        }
     }
 
     #[Test]
@@ -56,7 +78,9 @@ final class SessionStoreContractTest extends TestCase
     {
         $this->expectNotToPerformAssertions();
 
-        foreach (new SessionStoreContract()->checks() as $check) {
+        $contract = new SessionStoreContract();
+
+        foreach ([...$contract->checks(), ...$contract->pruningChecks()] as $check) {
             $check(new MemorySessionStore());
         }
     }
@@ -112,6 +136,8 @@ final class SessionStoreContractTest extends TestCase
     ): void {
         $this->expectExceptionObject(SessionStoreContractException::broken($expectation));
 
-        new SessionStoreContract()->checks()[$check](new FlawedSessionStore($flaw));
+        $contract = new SessionStoreContract();
+
+        [...$contract->checks(), ...$contract->pruningChecks()][$check](new FlawedSessionStore($flaw));
     }
 }

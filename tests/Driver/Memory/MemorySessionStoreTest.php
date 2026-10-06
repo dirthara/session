@@ -28,7 +28,9 @@ final class MemorySessionStoreTest extends TestCase
      */
     public static function storeContract(): iterable
     {
-        foreach (new SessionStoreContract()->checks() as $name => $check) {
+        $contract = new SessionStoreContract();
+
+        foreach ([...$contract->checks(), ...$contract->pruningChecks()] as $name => $check) {
             yield $name => [$check];
         }
     }

@@ -177,10 +177,16 @@ The store writes the payload as it is, and hands back exactly what it wrote. It 
 
 ## Testing a driver
 
-`Dirthara\Session\Testing\SessionStoreContract` holds the checks every store has to pass: reading and writing, keeping
-every byte of a payload and every moment to the millisecond, replacing, touching, and deleting only what is there, and
-pruning by expiry. The memory store is tested with it too. It does not depend on a test framework: `checks()` returns
-each check by name, and a check throws a `SessionStoreContractException` naming the expectation a store breaks.
+`Dirthara\Session\Testing\SessionStoreContract` holds the checks a store has to pass. The memory store is tested with
+it too. It does not depend on a test framework: each method returns its checks by name, and a check throws a
+`SessionStoreContractException` naming the expectation a store breaks.
+
+| Method | Checks | For |
+| --- | --- | --- |
+| `checks()` | Reading and writing, keeping every byte of a payload and every moment to the millisecond, and replacing, touching, and deleting only what is there. | Every store. Its moments lie far in the future, so a backend that expires keys on its own keeps them. |
+| `pruningChecks()` | Keeping an expired session until it is pruned, and pruning by expiry. | Stores that keep expired sessions until `prune()` removes them, such as a database store. A store whose backend expires keys on its own leaves them out. |
+
+The manager behaves the same whichever kind of store it uses, so neither kind is preferred.
 
 With PHPUnit, run every check on a new, empty store through a data provider:
 
@@ -200,7 +206,9 @@ final class DatabaseSessionStoreTest extends TestCase
      */
     public static function storeContract(): iterable
     {
-        foreach (new SessionStoreContract()->checks() as $name => $check) {
+        $contract = new SessionStoreContract();
+
+        foreach ([...$contract->checks(), ...$contract->pruningChecks()] as $name => $check) {
             yield $name => [$check];
         }
     }
