@@ -204,10 +204,17 @@ writing the changes of a session under the same ID fails, the session keeps them
 
 ## Concurrent requests
 
-Sessions are not locked. When two requests load the same session and both save it, the one that saves last wins, and
-the other's changes are lost. A request that saves after another request regenerated or invalidated the
-session stores nothing, as [described above](#when-a-save-stores-nothing). Keep values that concurrent requests both
-change, such as counters, out of the session, or make sure only one request changes them.
+Sessions are not locked: no request waits for another, and the package offers no lock. What it offers instead is
+protection for the session's lifecycle, through store operations that check and change in one step:
+
+- When two requests load the same session and both save it, the one that saves last wins, and the other's changes are
+  lost. The manager does not detect this conflict.
+- A request that saves after another request regenerated or invalidated the session stores nothing, as
+  [described above](#when-a-save-stores-nothing), and neither does one that saves after the session expired. A stale
+  request can never make a deleted or expired ID work again.
+
+Keep values that concurrent requests both change, such as counters, out of the session, or make sure only one request
+changes them.
 
 ## Sessions belong to their manager
 

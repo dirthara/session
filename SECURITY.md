@@ -29,8 +29,9 @@ exception handling, or development configuration. That includes:
 - a session ID the application or a visitor can choose, rather than the
   generator;
 - an ID that works again after it was regenerated or invalidated, including
-  through concurrent requests;
-- a session that outlives its idle or absolute lifetime;
+  through a stale request that loaded the session before;
+- a session that outlives its idle or absolute lifetime, including through a
+  request that loaded it before it expired;
 - a session ID or session value that leaks into an exception.
 
 The package does not read or write cookies, authenticate visitors, or decide
@@ -38,8 +39,9 @@ when a session ID has to be regenerated. Cookie attributes, regenerating the ID
 when a visitor's privileges change, invalidating the session on logout, choosing
 an absolute lifetime, and pruning are the application's responsibility; see
 [session IDs](docs/session-ids.md) and [sessions](docs/sessions.md). Sessions
-are not locked, so concurrent requests on one session overwrite each other's
-changes.
+are not locked: concurrent requests that both save one session overwrite each
+other's changes, the last save winning. That is documented behaviour, not a
+vulnerability.
 
 `RandomSessionIdGenerator` reads from PHP's cryptographically secure
 `Random\Engine\Secure` engine by default. Its constructor accepts another
