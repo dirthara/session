@@ -159,6 +159,10 @@ Either way, there is no session behind the ID, and the application should remove
 This is what keeps an old ID dead. Without it, a request that loaded the session before another request logged the
 visitor out, or regenerated the ID after they logged in, would write the old ID back when it finishes.
 
+A session that finds itself gone stays gone. Every later save of the same `Session` object returns `false` too, even
+after it was emptied and given values again, or regenerated: the manager only stores a session under a new ID after it
+deleted the old one itself.
+
 ## When saving fails
 
 A store reports a failure by throwing; the manager does not catch it. When deleting the old ID of a regenerated session

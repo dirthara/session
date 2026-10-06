@@ -155,8 +155,7 @@ final readonly class SessionManager implements SessionManagerContract
 
     private function forget(SessionState $state): bool
     {
-        if ($state->storedId !== null) {
-            $this->store->delete($state->storedId);
+        if ($state->storedId !== null && $this->store->delete($state->storedId)) {
             $state->storedId = null;
         }
 

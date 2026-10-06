@@ -643,6 +643,64 @@ final class SessionManagerTest extends TestCase
         self::assertNull($this->store->inner->read($second->id));
     }
 
+    /**
+     * @return iterable<string, array{callable(SessionManager, Session): void}>
+     */
+    public static function replacements(): iterable
+    {
+        yield 'regenerated' => [static fn(SessionManager $manager, Session $session) => $manager->regenerate($session)];
+        yield 'invalidated' => [static fn(SessionManager $manager, Session $session) => $manager->invalidate($session)];
+    }
+
+    /**
+     * @param callable(SessionManager, Session): void $replace
+     */
+    #[Test]
+    #[DataProvider('replacements')]
+    public function it_never_brings_back_a_replaced_id_through_a_stale_session_that_was_emptied(callable $replace): void
+    {
+        $this->manager->save($this->filled());
+        $first = $this->loaded('sessionid-0000000000000000000001');
+        $stale = $this->loaded('sessionid-0000000000000000000001');
+        $replace($this->manager, $first);
+        $first->put('locale', 'en_GB');
+        $this->manager->save($first);
+
+        $stale->clear();
+
+        self::assertFalse($this->manager->save($stale));
+
+        $stale->put('user', 43);
+
+        self::assertFalse($this->manager->save($stale));
+        self::assertFalse($this->manager->save($stale));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    /**
+     * @param callable(SessionManager, Session): void $replace
+     */
+    #[Test]
+    #[DataProvider('replacements')]
+    public function it_never_stores_a_new_id_for_a_stale_session_that_was_emptied(callable $replace): void
+    {
+        $this->manager->save($this->filled());
+        $first = $this->loaded('sessionid-0000000000000000000001');
+        $stale = $this->loaded('sessionid-0000000000000000000001');
+        $replace($this->manager, $first);
+        $this->manager->save($first);
+        $stale->clear();
+        $this->manager->save($stale);
+        $stale->put('user', 43);
+
+        $this->manager->regenerate($stale);
+
+        self::assertFalse($this->manager->save($stale));
+        self::assertNull($this->store->inner->read($stale->id));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
     #[Test]
     public function it_does_not_store_a_loaded_session_that_was_deleted_from_the_store(): void
     {
