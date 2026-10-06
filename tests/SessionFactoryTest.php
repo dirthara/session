@@ -7,11 +7,11 @@ namespace Dirthara\Session\Tests;
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
 use Dirthara\Session\SessionState;
+use Dirthara\Session\SessionFactory;
 use Dirthara\Session\SessionManager;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
-use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
@@ -28,7 +28,7 @@ use Dirthara\Session\Tests\Fixtures\RecordingSessionDriver;
 use Dirthara\Session\Exception\SessionDriverNotFoundException;
 use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
-#[CoversClass(SessionManagerFactory::class)]
+#[CoversClass(SessionFactory::class)]
 #[UsesClass(Session::class)]
 #[UsesClass(SessionState::class)]
 #[UsesClass(Duration::class)]
@@ -43,7 +43,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[UsesClass(SessionDriverRegistry::class)]
 #[UsesClass(SessionDriverNotFoundException::class)]
 #[UsesTrait(HasExceptionContext::class)]
-final class SessionManagerFactoryTest extends TestCase
+final class SessionFactoryTest extends TestCase
 {
     #[Test]
     public function it_creates_a_manager_on_a_store_from_the_configured_driver(): void
@@ -84,7 +84,7 @@ final class SessionManagerFactoryTest extends TestCase
         $drivers = new SessionDriverRegistry();
         $drivers->register('memory', new MemorySessionDriver());
         $clock = new TestClock();
-        $factory = new SessionManagerFactory(
+        $factory = new SessionFactory(
             $drivers,
             new SequentialSessionIdGenerator(),
             new NativeSessionSerialiser(),
@@ -128,9 +128,9 @@ final class SessionManagerFactoryTest extends TestCase
         );
     }
 
-    private function factory(SessionDriverRegistry $drivers): SessionManagerFactory
+    private function factory(SessionDriverRegistry $drivers): SessionFactory
     {
-        return new SessionManagerFactory(
+        return new SessionFactory(
             $drivers,
             new SequentialSessionIdGenerator(),
             new NativeSessionSerialiser(),

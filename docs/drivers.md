@@ -76,17 +76,17 @@ The registry implements two contracts, so code can depend on only what it uses: 
 
 ## Creating a manager
 
-`SessionManagerFactory` creates a [manager](sessions.md) on a store from the driver a configuration names:
+`SessionFactory` creates a [manager](sessions.md) on a store from the driver a configuration names:
 
 ```php
 use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
 use Dirthara\Session\Serialiser\NativeSessionSerialiser;
-use Dirthara\Session\SessionManagerFactory;
+use Dirthara\Session\SessionFactory;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 
-$factory = new SessionManagerFactory(
+$factory = new SessionFactory(
     $drivers,
     new RandomSessionIdGenerator(),
     new NativeSessionSerialiser(),
@@ -99,7 +99,7 @@ $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Dur
 Each manager gets its own store from the driver, so whether two managers share their sessions depends on the driver:
 two memory managers never do, while managers of a driver for shared storage usually do. A configuration that names a
 driver that is not registered throws a `SessionDriverNotFoundException`. Code that only creates managers can depend on
-the `SessionManagerFactory` contract in `Dirthara\Session\Contract`, and code that works with sessions on the
+the `SessionFactory` contract in `Dirthara\Session\Contract`, and code that works with sessions on the
 `SessionManager` contract.
 
 A `SessionManager` can also be constructed directly, from a store, an ID generator, a serialiser, a clock, and a

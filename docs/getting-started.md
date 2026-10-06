@@ -74,11 +74,11 @@ pass a clock that returns a fixed time and move it forward, so they do not have 
 
 ```php
 use Dirthara\Session\Config\SessionConfiguration;
-use Dirthara\Session\SessionManagerFactory;
+use Dirthara\Session\SessionFactory;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 
-$factory = new SessionManagerFactory($drivers, $ids, $serialiser, new SystemClock());
+$factory = new SessionFactory($drivers, $ids, $serialiser, new SystemClock());
 
 $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 ```

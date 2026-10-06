@@ -21,7 +21,7 @@ application, so the package works with any HTTP layer.
 | `SessionId` | A validated session ID | [Session IDs](session-ids.md) |
 | `RandomSessionIdGenerator` | Generates session IDs from 256 random bits | [Session IDs](session-ids.md) |
 | `NativeSessionSerialiser` | Turns session values into a payload and back | [Serialisation](serialisation.md) |
-| `SessionManagerFactory` | Creates a manager from a named driver and its configuration | [Stores and drivers](drivers.md) |
+| `SessionFactory` | Creates a manager from a named driver and its configuration | [Stores and drivers](drivers.md) |
 | `SessionDriverRegistry` | Holds the drivers by name | [Stores and drivers](drivers.md) |
 | `MemorySessionDriver` | Creates a store that keeps its sessions in PHP memory | [Stores and drivers](drivers.md) |
 | `SessionStoreTestCase` | The tests every store has to pass, for driver packages | [Stores and drivers](drivers.md#testing-a-driver) |
@@ -32,14 +32,14 @@ use Dirthara\Session\Driver\Memory\MemorySessionDriver;
 use Dirthara\Session\Driver\SessionDriverRegistry;
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
 use Dirthara\Session\Serialiser\NativeSessionSerialiser;
-use Dirthara\Session\SessionManagerFactory;
+use Dirthara\Session\SessionFactory;
 use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 
 $drivers = new SessionDriverRegistry();
 $drivers->register('memory', new MemorySessionDriver());
 
-$factory = new SessionManagerFactory(
+$factory = new SessionFactory(
     $drivers,
     new RandomSessionIdGenerator(),
     new NativeSessionSerialiser(),

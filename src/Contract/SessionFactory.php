@@ -6,7 +6,7 @@ namespace Dirthara\Session\Contract;
 
 use Dirthara\Session\Config\SessionConfiguration;
 
-interface SessionManagerFactory
+interface SessionFactory
 {
     public function create(SessionConfiguration $configuration): SessionManager;
 }

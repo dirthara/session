@@ -9,10 +9,10 @@ use Dirthara\Session\Contract\SessionSerialiser;
 use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Contract\SessionDriverProvider;
+use Dirthara\Session\Contract\SessionFactory as SessionFactoryContract;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
-use Dirthara\Session\Contract\SessionManagerFactory as SessionManagerFactoryContract;
 
-final readonly class SessionManagerFactory implements SessionManagerFactoryContract
+final readonly class SessionFactory implements SessionFactoryContract
 {
     public function __construct(
         private SessionDriverProvider $drivers,
