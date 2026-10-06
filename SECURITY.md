@@ -41,6 +41,15 @@ an absolute lifetime, and pruning are the application's responsibility; see
 are not locked, so concurrent requests on one session overwrite each other's
 changes.
 
+`RandomSessionIdGenerator` reads from PHP's cryptographically secure
+`Random\Engine\Secure` engine by default. Its constructor accepts another
+`Random\Engine` so that tests can make IDs predictable or the random source
+fail. Passing an engine that is not cryptographically secure, such as
+`Random\Engine\Mt19937`, outside tests makes session IDs predictable. That is
+a misconfiguration in the application, not a vulnerability in this package;
+see [generating IDs](docs/session-ids.md#generating-ids). A custom
+`SessionIdGenerator` is likewise the application's responsibility.
+
 The native serialiser restores PHP objects from payloads, including running
 their restoration hooks, so it trusts the store; see
 [serialisation](docs/serialisation.md). Protecting the store from untrusted
