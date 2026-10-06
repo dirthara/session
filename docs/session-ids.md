@@ -86,7 +86,7 @@ Carrying the ID is up to the application. For a cookie:
 | `HttpOnly` | set | Scripts in the page, including injected ones, cannot read the ID. |
 | `SameSite` | `Lax` or `Strict` | Other sites cannot make the browser send the ID along with their requests. |
 | `Path` | `/` | Every page of the application sees the same session. |
-| `Expires` or `Max-Age` | the lifetime, from the last save | The browser forgets the ID about when the session expires. |
+| `Expires` or `Max-Age` | the lifetime, from the last save | The browser forgets the ID about when the session expires. Browsers cap this at about 400 days. |
 
 Send the cookie again after every save that returns `true`, because a save extends the lifetime, and because the ID
 changes when the session is regenerated or invalidated. Remove it after a save that returns `false`.

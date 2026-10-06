@@ -17,6 +17,11 @@ returns. A store keeps them as UTC, or as a Unix timestamp, so that it compares 
 store that writes them as local times without a zone, such as into a `DATETIME` column, can prune sessions hours early
 or late once servers or the database run in another time zone.
 
+A store has to keep the moments it is given. A very long lifetime can put an expiry far beyond the year 9999, which
+some backends cannot hold, such as a database `DATETIME` column; a store for such a backend documents its limit, or
+keeps a moment as its Unix timestamp in seconds, in a 64-bit integer, with the milliseconds beside it, which holds every
+moment the manager can hand it.
+
 A store may hand moments back in any time zone, as long as each is the same instant it was given. The manager converts
 them to UTC before it calculates with them, so adding a lifetime to a moment a store returned in a zone with daylight
 saving time still adds elapsed time rather than moving the wall clock.
@@ -129,8 +134,7 @@ $configuration = new SessionConfiguration('database', new Lifetime(Duration::hou
 A `Lifetime` takes its idle lifetime, and optionally its absolute lifetime, as a `Duration`, which is created in
 milliseconds, seconds, minutes, or hours, as `Duration::minutes(30)`, and holds a whole, non-negative number of
 milliseconds. A negative amount, or one that does not fit in an integer of milliseconds, throws an
-`InvalidDurationException`. A lifetime of zero or longer than 400 days, the most browsers keep a cookie, throws an
-`InvalidSessionLifetimeException`.
+`InvalidDurationException`. A lifetime of zero throws an `InvalidSessionLifetimeException`.
 
 A driver reads its options with typed accessors:
 

@@ -114,9 +114,15 @@ application people log in to for a working day.
 A lifetime is elapsed time. The manager calculates every expiry in UTC, so a session that lives for 24 hours lives for
 24 hours across a daylight saving change too, whatever time zone the clock or the store uses.
 
-Each lifetime is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
-throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum. An absolute lifetime
-shorter than the idle lifetime is allowed, and then the idle lifetime never ends a session.
+Each lifetime is longer than zero; a lifetime of zero throws an `InvalidSessionLifetimeException`. There is no maximum
+beyond what a `Duration` can hold, and the manager adds even the longest exactly. An absolute lifetime shorter than the
+idle lifetime is allowed, and then the idle lifetime never ends a session.
+
+:::note
+The package does not limit lifetimes to what a cookie can carry. Browsers keep a cookie for at most about 400 days, so
+a session that lives longer outlives the cookie that carries its ID; capping the cookie is up to the HTTP layer. See
+[the cookie](session-ids.md#the-cookie).
+:::
 
 ## Pruning
 

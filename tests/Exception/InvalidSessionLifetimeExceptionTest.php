@@ -52,14 +52,14 @@ final class InvalidSessionLifetimeExceptionTest extends TestCase
     }
 
     #[Test]
-    public function it_describes_a_lifetime_out_of_range(): void
+    public function it_describes_a_lifetime_of_zero(): void
     {
-        $exception = InvalidSessionLifetimeException::outOfRange('idle', 0, 34_560_000_000);
+        $exception = InvalidSessionLifetimeException::zero('absolute');
 
         self::assertSame(
-            'Unable to use an idle session lifetime of 0 milliseconds: it has to be between 1 and 34560000000 milliseconds.',
+            'Unable to use an absolute session lifetime of zero: a session has to live for longer than that.',
             $exception->getMessage(),
         );
-        self::assertSame(['lifetime' => 'idle', 'milliseconds' => 0, 'maximum' => 34_560_000_000], $exception->context);
+        self::assertSame(['lifetime' => 'absolute'], $exception->context);
     }
 }

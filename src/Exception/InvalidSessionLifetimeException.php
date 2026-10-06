@@ -23,16 +23,14 @@ final class InvalidSessionLifetimeException extends InvalidArgumentException imp
         $this->context = $context;
     }
 
-    public static function outOfRange(string $lifetime, int $milliseconds, int $maximum): self
+    public static function zero(string $lifetime): self
     {
         return new self(
             message: sprintf(
-                'Unable to use an %s session lifetime of %d milliseconds: it has to be between 1 and %d milliseconds.',
+                'Unable to use an %s session lifetime of zero: a session has to live for longer than that.',
                 $lifetime,
-                $milliseconds,
-                $maximum,
             ),
-            context: ['lifetime' => $lifetime, 'milliseconds' => $milliseconds, 'maximum' => $maximum],
+            context: ['lifetime' => $lifetime],
         );
     }
 }

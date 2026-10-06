@@ -33,6 +33,8 @@ use Dirthara\Session\Tests\Fixtures\RecordingSessionStore;
 use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
+use const PHP_INT_MAX;
+
 #[CoversClass(SessionManager::class)]
 #[UsesClass(Session::class)]
 #[UsesClass(SessionState::class)]
@@ -206,7 +208,7 @@ final class SessionManagerTest extends TestCase
             new SequentialSessionIdGenerator(),
             new NativeSessionSerialiser(),
             $this->clock,
-            new Lifetime(Duration::hours(400 * 24)),
+            new Lifetime(Duration::milliseconds(PHP_INT_MAX), Duration::milliseconds(PHP_INT_MAX)),
         );
 
         $session = $manager->create();
@@ -215,7 +217,33 @@ final class SessionManagerTest extends TestCase
 
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
-        self::assertSame('2027-11-09 12:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('292279051-05-22 19:12:56.057 UTC', $stored->expiresAt->format('Y-m-d H:i:s.v e'));
+    }
+
+    /**
+     * @return iterable<string, array{Duration, string}>
+     */
+    public static function exactLifetimes(): iterable
+    {
+        yield 'a millisecond' => [Duration::milliseconds(1), '2026-10-05 12:00:00.251'];
+        yield 'carrying into the next second' => [Duration::milliseconds(750), '2026-10-05 12:00:01.000'];
+        yield 'a year of days' => [Duration::hours(365 * 24), '2027-10-05 12:00:00.250'];
+        yield 'a thousand years of days' => [Duration::hours(365_243 * 24), '3026-10-06 12:00:00.250'];
+    }
+
+    #[Test]
+    #[DataProvider('exactLifetimes')]
+    public function it_adds_a_lifetime_as_exact_elapsed_time(Duration $idle, string $expected): void
+    {
+        $manager = $this->manager(new Lifetime($idle));
+        $session = $manager->create();
+        $session->put('user', 42);
+
+        $manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($stored);
+        self::assertSame($expected . ' UTC', $stored->expiresAt->format('Y-m-d H:i:s.v e'));
     }
 
     /**

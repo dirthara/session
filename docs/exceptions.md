@@ -28,7 +28,7 @@ These are thrown while an application is being set up, and point to a mistake in
 | `DuplicateSessionDriverException` | `InvalidArgumentException` | A second driver is registered under a name. |
 | `InvalidDurationException` | `InvalidArgumentException` | A duration is negative, or does not fit in an integer of milliseconds. |
 | `InvalidSessionConfigurationException` | `InvalidArgumentException` | An option is missing without a default, or has another type than the one read. |
-| `InvalidSessionLifetimeException` | `InvalidArgumentException` | A lifetime is zero or longer than 400 days. |
+| `InvalidSessionLifetimeException` | `InvalidArgumentException` | A lifetime is zero. |
 | `SessionDriverNotFoundException` | `RuntimeException` | A manager is created with, or a driver asked for, a name without a driver. |
 
 ## Using sessions

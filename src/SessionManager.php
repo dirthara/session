@@ -20,7 +20,7 @@ use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
 
 use function min;
-use function sprintf;
+use function intdiv;
 
 final readonly class SessionManager implements SessionManagerContract
 {
@@ -226,6 +226,12 @@ final readonly class SessionManager implements SessionManagerContract
 
     private function later(DateTimeImmutable $moment, Duration $duration): DateTimeImmutable
     {
-        return $moment->modify(sprintf('+%d milliseconds', $duration->milliseconds));
+        $microseconds = (int) $moment->format('u') + (($duration->milliseconds % 1000) * 1000);
+        $seconds =
+            $moment->getTimestamp()
+            + intdiv($duration->milliseconds, num2: 1000)
+            + intdiv($microseconds, num2: 1_000_000);
+
+        return $this->utc(new DateTimeImmutable('@' . $seconds)->setMicrosecond($microseconds % 1_000_000));
     }
 }
