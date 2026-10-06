@@ -34,8 +34,8 @@ exception therefore states only the length of the value it refused, never the va
 ## Generating IDs
 
 The manager gets the ID of every new and every regenerated session from a `SessionIdGenerator`.
-`RandomSessionIdGenerator` takes 32 bytes, 256 bits, from `random_bytes()`, PHP's cryptographically secure random
-source, and writes them as 64 lowercase hexadecimal characters:
+`RandomSessionIdGenerator` takes 32 bytes, 256 bits, from PHP's cryptographically secure random source, and writes
+them as 64 lowercase hexadecimal characters:
 
 ```php
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
@@ -43,6 +43,17 @@ use Dirthara\Session\Generator\RandomSessionIdGenerator;
 new RandomSessionIdGenerator()->generate()->value;
 // 'c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2'
 ```
+
+When the random source fails, which happens only when the system has no source of randomness at all, the generator
+throws a `SessionIdGenerationException` with PHP's `Random\RandomException` as its previous exception.
+
+The generator reads from a `Random\Engine\Secure` engine. The constructor accepts another `Random\Engine` so that tests
+can make the bytes predictable or the source fail:
+
+:::danger
+Never pass an engine that is not cryptographically secure, such as `Random\Engine\Mt19937`, outside tests. Its IDs can
+be predicted from IDs it generated before, and a predicted ID takes over the session.
+:::
 
 Lowercase hexadecimal keeps two IDs apart in a store that compares keys without regard to letter case, such as a
 database column with a case-insensitive collation.
