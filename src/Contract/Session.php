@@ -6,7 +6,17 @@ namespace Dirthara\Session\Contract;
 
 interface Session
 {
-    public function get(string $key, $default = null): mixed;
+    public function has(string $key): bool;
 
-    // todo other methods
+    public function get(string $key, mixed $default = null): mixed;
+
+    public function put(string $key, mixed $value): void;
+
+    public function remove(string $key): void;
+
+    public function clear(): void;
+
+    public function regenerate(): void;
+
+    public function invalidate(): void;
 }
