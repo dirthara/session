@@ -274,27 +274,40 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_the_new_id_before_it_deletes_the_stored_id(): void
+    public function it_replaces_a_stored_session_under_the_same_id(): void
+    {
+        $session = $this->manager->create();
+        $this->manager->save($session);
+        $session->put('user', 42);
+
+        self::assertTrue($this->manager->save($session));
+        self::assertSame(
+            ['write sessionid-0000000000000000000001', 'replace sessionid-0000000000000000000001'],
+            $this->store->calls,
+        );
+    }
+
+    #[Test]
+    public function it_deletes_the_stored_id_before_it_writes_the_new_one(): void
     {
         $session = $this->manager->create();
         $this->manager->save($session);
         $this->manager->regenerate($session);
         $this->manager->regenerate($session);
 
-        $this->manager->save($session);
-
+        self::assertTrue($this->manager->save($session));
         self::assertSame(
             [
                 'write sessionid-0000000000000000000001',
-                'write sessionid-0000000000000000000003',
                 'delete sessionid-0000000000000000000001',
+                'write sessionid-0000000000000000000003',
             ],
             $this->store->calls,
         );
     }
 
     #[Test]
-    public function it_deletes_the_stored_id_only_once(): void
+    public function it_replaces_the_new_id_once_a_regenerated_session_is_saved(): void
     {
         $session = $this->manager->create();
         $this->manager->save($session);
@@ -306,12 +319,112 @@ final class SessionManagerTest extends TestCase
         self::assertSame(
             [
                 'write sessionid-0000000000000000000001',
-                'write sessionid-0000000000000000000002',
                 'delete sessionid-0000000000000000000001',
                 'write sessionid-0000000000000000000002',
+                'replace sessionid-0000000000000000000002',
             ],
             $this->store->calls,
         );
+    }
+
+    #[Test]
+    public function it_does_not_bring_back_a_session_that_another_request_regenerated(): void
+    {
+        $this->manager->save($this->manager->create());
+        $first = $this->loaded('sessionid-0000000000000000000001');
+        $second = $this->loaded('sessionid-0000000000000000000001');
+        $this->manager->regenerate($first);
+        $this->manager->save($first);
+
+        $second->put('user', 42);
+
+        self::assertFalse($this->manager->save($second));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_does_not_bring_back_a_session_that_another_request_invalidated(): void
+    {
+        $session = $this->manager->create();
+        $session->put('user', 42);
+        $this->manager->save($session);
+        $loggingOut = $this->loaded('sessionid-0000000000000000000001');
+        $concurrent = $this->loaded('sessionid-0000000000000000000001');
+        $this->manager->invalidate($loggingOut);
+        $this->manager->save($loggingOut);
+
+        self::assertFalse($this->manager->save($concurrent));
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_does_not_store_a_new_id_for_a_session_that_another_request_regenerated(): void
+    {
+        $this->manager->save($this->manager->create());
+        $first = $this->loaded('sessionid-0000000000000000000001');
+        $second = $this->loaded('sessionid-0000000000000000000001');
+        $this->manager->regenerate($first);
+        $this->manager->save($first);
+        $this->manager->regenerate($second);
+
+        self::assertFalse($this->manager->save($second));
+        self::assertNull($this->store->inner->read($second->id));
+    }
+
+    #[Test]
+    public function it_does_not_store_a_loaded_session_that_was_deleted_from_the_store(): void
+    {
+        $this->manager->save($this->manager->create());
+        $session = $this->loaded('sessionid-0000000000000000000001');
+        $this->store->inner->delete(new SessionId('sessionid-0000000000000000000001'));
+
+        self::assertFalse($this->manager->save($session));
+        self::assertFalse($this->manager->save($session));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_leaves_the_session_stored_when_the_store_fails_to_delete_the_old_id(): void
+    {
+        $session = $this->manager->create();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
+        $this->store->throwingOperations = ['delete'];
+
+        try {
+            $this->manager->save($session);
+            self::fail('A failed delete was not reported.');
+        } catch (ContextualException) {
+            self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+            self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
+        }
+
+        $this->store->throwingOperations = [];
+
+        self::assertTrue($this->manager->save($session));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
+    }
+
+    #[Test]
+    public function it_writes_the_new_id_on_the_next_save_when_the_store_fails_to_write_it(): void
+    {
+        $session = $this->manager->create();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
+        $this->store->throwingOperations = ['write'];
+
+        try {
+            $this->manager->save($session);
+            self::fail('A failed write was not reported.');
+        } catch (ContextualException) {
+            self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        }
+
+        $this->store->throwingOperations = [];
+
+        self::assertTrue($this->manager->save($session));
+        self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
     }
 
     #[Test]
@@ -320,8 +433,7 @@ final class SessionManagerTest extends TestCase
         $session = $this->manager->create();
         $this->manager->regenerate($session);
 
-        $this->manager->save($session);
-
+        self::assertTrue($this->manager->save($session));
         self::assertSame(['write sessionid-0000000000000000000002'], $this->store->calls);
     }
 
@@ -350,49 +462,6 @@ final class SessionManagerTest extends TestCase
         $this->manager->regenerate($loaded);
 
         self::assertSame('sessionid-0000000000000000000002', $loaded->id->value);
-    }
-
-    #[Test]
-    public function it_keeps_the_stored_id_when_the_store_fails_to_write(): void
-    {
-        $session = $this->manager->create();
-        $this->manager->save($session);
-        $this->manager->regenerate($session);
-        $this->store->throwingOperations = ['write'];
-
-        try {
-            $this->manager->save($session);
-            self::fail('A failed write was not reported.');
-        } catch (ContextualException) {
-            self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
-        }
-
-        $this->store->throwingOperations = [];
-        $this->manager->save($session);
-
-        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
-        self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
-    }
-
-    #[Test]
-    public function it_deletes_the_stored_id_on_the_next_save_when_the_store_fails_to_delete(): void
-    {
-        $session = $this->manager->create();
-        $this->manager->save($session);
-        $this->manager->regenerate($session);
-        $this->store->throwingOperations = ['delete'];
-
-        try {
-            $this->manager->save($session);
-            self::fail('A failed delete was not reported.');
-        } catch (ContextualException) {
-            self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
-        }
-
-        $this->store->throwingOperations = [];
-        $this->manager->save($session);
-
-        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
     }
 
     /**

@@ -102,10 +102,10 @@ $session ??= $sessions->create();
 
 $session->put('last_seen', time());
 
-$sessions->save($session);
+$stored = $sessions->save($session);
 
-setcookie('session', $session->id->value, [
-    'expires' => time() + 7200,
+setcookie('session', $stored ? $session->id->value : '', [
+    'expires' => $stored ? time() + 7200 : 1,
     'path' => '/',
     'secure' => true,
     'httponly' => true,
@@ -117,6 +117,8 @@ setcookie('session', $session->id->value, [
 is not a valid session ID; both mean the visitor starts a new session. A visitor can therefore never choose their
 own session ID: every new session gets one from the generator.
 
-Send the cookie after every save, because saving extends the session's lifetime, and because the ID changes when the
-session is [regenerated](sessions.md#regenerating-the-id). See [sessions](sessions.md) for what a session holds and
+`save()` returns whether the session is stored under its ID. When it is, send the cookie after every save, because
+saving extends the session's lifetime, and because the ID changes when the session is
+[regenerated](sessions.md#regenerating-the-id). When it is not, remove the cookie: there is no session behind it. See
+[when a save stores nothing](sessions.md#when-a-save-stores-nothing). See [sessions](sessions.md) for what a session holds and
 when to regenerate it.

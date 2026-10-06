@@ -13,7 +13,7 @@ A `SessionManager` works with the sessions in one store:
 | --- | --- |
 | `create(): Session` | Returns a new, empty session with a new ID. Nothing is stored until it is saved. |
 | `load(SessionId $id): ?Session` | Returns the session stored under the ID, or `null` when there is none or it has expired. |
-| `save(Session $session): void` | Stores the session's values under its ID, and starts its lifetime again. |
+| `save(Session $session): bool` | Stores the session's values under its ID, starts its lifetime again, and returns whether the session is stored. |
 | `regenerate(Session $session): void` | Gives the session a new ID. See [regenerating the ID](#regenerating-the-id). |
 | `invalidate(Session $session): void` | Removes the session's values and gives it a new ID. See [invalidating](#invalidating). |
 
@@ -87,9 +87,9 @@ An attacker who managed to plant a session ID on a visitor, or saw it before the
 that no longer leads anywhere. This defence against session fixation only works when the application regenerates; the
 package cannot know when privileges change.
 
-`$session->id` is the new ID straight away, but the store only learns about it on save: the manager writes the session
-under its new ID, and then deletes the ID it was stored under. Regenerating several times before a save stores only the
-last ID. Send the visitor the new ID after saving.
+`$session->id` is the new ID straight away, but the store only learns about it on save: the manager deletes the ID the
+session was stored under, and then writes the session under its new ID. Regenerating several times before a save
+stores only the last ID. Send the visitor the new ID after saving.
 
 ## Invalidating
 
@@ -102,18 +102,31 @@ $sessions->invalidate($session);
 $sessions->save($session);
 ```
 
-Saving stores the empty session under its new ID and deletes the old one, so the old ID no longer works anywhere.
+Saving deletes the old ID and stores the empty session under its new one, so the old ID no longer works anywhere.
 
 ## When saving fails
 
-A store reports a failure by throwing; the manager does not catch it. When writing the session fails, nothing is
-deleted, so saving it again finishes the job. When deleting the old ID fails, the session is already stored under its
-new ID, and saving it again deletes the old one. Until then, the old ID keeps working.
+## When a save stores nothing
+
+`save()` returns `false`, and stores nothing, when a loaded session is no longer in the store. Another request may have
+regenerated or invalidated it, or the store may have removed it. Its changes are lost, and the application should
+remove the visitor's cookie.
+
+This is what keeps an old ID dead. Without it, a request that loaded the session before another request logged the
+visitor out, or regenerated the ID after they logged in, would write the old ID back when it finishes.
+
+## When saving fails
+
+A store reports a failure by throwing; the manager does not catch it. When deleting the old ID of a regenerated session
+fails, nothing has changed, and the old ID keeps working until the session is saved again. When writing the new ID
+fails after the old ID was deleted, the session is in neither, and saving it again stores it under its new ID. The
+manager deletes first on purpose: a failure in between logs the visitor out rather than leaving two working IDs.
 
 ## Concurrent requests
 
 Sessions are not locked. When two requests load the same session and both save it, the one that saves last wins, and
-the other's changes are lost. Keep values that concurrent requests both change, such as counters, out of the session,
+the other's changes are lost. A request that saves after another request regenerated or invalidated the session stores
+nothing, as [described above](#when-a-save-stores-nothing). Keep values that concurrent requests both change, such as counters, out of the session,
 or make sure only one request changes them.
 
 ## Sessions belong to their manager

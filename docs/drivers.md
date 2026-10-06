@@ -15,7 +15,13 @@ objects and `StoredSession` objects, each holding the session's string `payload`
 | --- | --- |
 | `read(SessionId $id): ?StoredSession` | Returns the session under the ID, or `null` when there is none. |
 | `write(SessionId $id, StoredSession $session): void` | Stores a session under the ID, replacing any session already there. |
-| `delete(SessionId $id): void` | Removes the session under the ID, and succeeds when there is none. |
+| `replace(SessionId $id, StoredSession $session): bool` | Stores a session under the ID only when there already is one, and returns whether there was. |
+| `delete(SessionId $id): bool` | Removes the session under the ID, and returns whether there was one. |
+
+`replace()` and `delete()` have to check and change in one step, because the manager relies on their answer when
+requests run at the same time. A database store, for example, runs one `UPDATE` or `DELETE` and returns whether it
+affected a row; a store that reads first and writes afterwards can bring back a session another request just deleted.
+The manager only calls `write()` for an ID it has just generated.
 
 A store reports a failure by throwing. A driver package lets its exceptions implement
 `Dirthara\Session\Exception\SessionException` as well as its own package's interface, so that a caller can catch

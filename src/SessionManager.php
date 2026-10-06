@@ -68,18 +68,27 @@ final readonly class SessionManager implements SessionManagerContract
      * @throws ForeignSessionException
      * @throws SessionSerialisationException
      */
-    public function save(Session $session): void
+    public function save(Session $session): bool
     {
         $state = $this->state($session, 'save');
-        $payload = $this->serialiser->serialise($state->values);
+        $stored = new StoredSession($this->serialiser->serialise($state->values), $this->expiry());
 
-        $this->store->write($state->id, new StoredSession($payload, $this->expiry()));
-
-        if ($state->storedId !== null && $state->storedId->value !== $state->id->value) {
-            $this->store->delete($state->storedId);
+        if ($state->storedId !== null && $state->storedId->value === $state->id->value) {
+            return $this->store->replace($state->id, $stored);
         }
 
+        if ($state->storedId !== null) {
+            if (!$this->store->delete($state->storedId)) {
+                return false;
+            }
+
+            $state->storedId = null;
+        }
+
+        $this->store->write($state->id, $stored);
         $state->storedId = $state->id;
+
+        return true;
     }
 
     /**

@@ -88,5 +88,5 @@ Carrying the ID is up to the application. For a cookie:
 | `Path` | `/` | Every page of the application sees the same session. |
 | `Expires` or `Max-Age` | the lifetime, from the last save | The browser forgets the ID about when the session expires. |
 
-Send the cookie again after every save, because a save extends the lifetime, and because the ID changes when the
-session is regenerated or invalidated.
+Send the cookie again after every save that returns `true`, because a save extends the lifetime, and because the ID
+changes when the session is regenerated or invalidated. Remove it after a save that returns `false`.

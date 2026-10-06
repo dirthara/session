@@ -13,7 +13,7 @@ interface SessionManager
 
     public function load(SessionId $id): ?Session;
 
-    public function save(Session $session): void;
+    public function save(Session $session): bool;
 
     public function regenerate(Session $session): void;
 

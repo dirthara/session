@@ -66,6 +66,30 @@ final class MemorySessionStoreTest extends TestCase
     }
 
     #[Test]
+    public function it_replaces_a_session_only_under_an_id_it_has(): void
+    {
+        $store = new MemorySessionStore();
+        $replacement = $this->stored('user 2');
+        $store->write(new SessionId(self::FIRST_ID), $this->stored('user 1'));
+
+        self::assertTrue($store->replace(new SessionId(self::FIRST_ID), $replacement));
+        self::assertFalse($store->replace(new SessionId(self::SECOND_ID), $this->stored('user 3')));
+        self::assertSame($replacement, $store->read(new SessionId(self::FIRST_ID)));
+        self::assertNull($store->read(new SessionId(self::SECOND_ID)));
+    }
+
+    #[Test]
+    public function it_does_not_replace_a_session_it_deleted(): void
+    {
+        $store = new MemorySessionStore();
+        $store->write(new SessionId(self::FIRST_ID), $this->stored('user 1'));
+        $store->delete(new SessionId(self::FIRST_ID));
+
+        self::assertFalse($store->replace(new SessionId(self::FIRST_ID), $this->stored('user 2')));
+        self::assertNull($store->read(new SessionId(self::FIRST_ID)));
+    }
+
+    #[Test]
     public function it_keeps_an_expired_session_because_expiry_is_up_to_the_manager(): void
     {
         $store = new MemorySessionStore();
@@ -84,20 +108,20 @@ final class MemorySessionStoreTest extends TestCase
         $store->write(new SessionId(self::FIRST_ID), $this->stored('user 1'));
         $store->write(new SessionId(self::SECOND_ID), $kept);
 
-        $store->delete(new SessionId(self::FIRST_ID));
-
+        self::assertTrue($store->delete(new SessionId(self::FIRST_ID)));
         self::assertNull($store->read(new SessionId(self::FIRST_ID)));
         self::assertSame($kept, $store->read(new SessionId(self::SECOND_ID)));
     }
 
     #[Test]
-    public function it_deletes_an_id_it_has_no_session_under_without_failing(): void
+    public function it_reports_that_it_had_no_session_under_an_id_it_deletes(): void
     {
         $store = new MemorySessionStore();
-
+        $store->write(new SessionId(self::FIRST_ID), $this->stored('user 1'));
         $store->delete(new SessionId(self::FIRST_ID));
 
-        self::assertNull($store->read(new SessionId(self::FIRST_ID)));
+        self::assertFalse($store->delete(new SessionId(self::FIRST_ID)));
+        self::assertFalse($store->delete(new SessionId(self::SECOND_ID)));
     }
 
     private function stored(string $payload): StoredSession

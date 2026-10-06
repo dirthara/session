@@ -41,11 +41,18 @@ final class RecordingSessionStore implements SessionStore
         $this->inner->write($id, $session);
     }
 
-    public function delete(SessionId $id): void
+    public function replace(SessionId $id, StoredSession $session): bool
+    {
+        $this->record('replace', $id);
+
+        return $this->inner->replace($id, $session);
+    }
+
+    public function delete(SessionId $id): bool
     {
         $this->record('delete', $id);
 
-        $this->inner->delete($id);
+        return $this->inner->delete($id);
     }
 
     private function record(string $operation, SessionId $id): void
