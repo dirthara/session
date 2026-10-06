@@ -16,6 +16,7 @@ use Dirthara\Session\ValueObject\StoredSession;
 use Dirthara\Session\Contract\SessionSerialiser;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Exception\ForeignSessionException;
+use Dirthara\Session\Exception\SessionIdGenerationException;
 use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
 
@@ -39,6 +40,9 @@ final readonly class SessionManager implements SessionManagerContract
         $this->states = new WeakMap();
     }
 
+    /**
+     * @throws SessionIdGenerationException
+     */
     public function create(): Session
     {
         return $this->track(new SessionState($this->ids->generate(), storedId: null));
@@ -107,6 +111,7 @@ final readonly class SessionManager implements SessionManagerContract
 
     /**
      * @throws ForeignSessionException
+     * @throws SessionIdGenerationException
      */
     public function regenerate(Session $session): void
     {
@@ -115,6 +120,7 @@ final readonly class SessionManager implements SessionManagerContract
 
     /**
      * @throws ForeignSessionException
+     * @throws SessionIdGenerationException
      */
     public function invalidate(Session $session): void
     {
@@ -124,9 +130,6 @@ final readonly class SessionManager implements SessionManagerContract
         $state->id = $this->ids->generate();
     }
 
-    /**
-     * @throws SessionSerialisationException
-     */
     public function prune(): int
     {
         return $this->store->prune($this->now());
