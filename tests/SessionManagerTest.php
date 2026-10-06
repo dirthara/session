@@ -25,6 +25,7 @@ use Dirthara\Session\Driver\Memory\MemorySessionStore;
 use Dirthara\Session\Exception\ForeignSessionException;
 use Dirthara\Session\Serialiser\NativeSessionSerialiser;
 use Dirthara\Session\Tests\Fixtures\ContextualException;
+use Dirthara\Session\Tests\Fixtures\ExpiringSessionStore;
 use Dirthara\Session\Tests\Fixtures\RecordingSessionStore;
 use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
@@ -214,6 +215,126 @@ final class SessionManagerTest extends TestCase
         self::assertSame('2027-11-09 12:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
     }
 
+    /**
+     * @return iterable<string, array{string, callable(Session): void}>
+     */
+    public static function lateSaves(): iterable
+    {
+        $unchanged = static function (Session $session): void {};
+        $changed = static fn(Session $session) => $session->put('locale', 'en_GB');
+
+        yield 'unchanged, on a store that keeps expired sessions' => ['retaining', $unchanged];
+        yield 'changed, on a store that keeps expired sessions' => ['retaining', $changed];
+        yield 'unchanged, on a store that expires sessions itself' => ['expiring', $unchanged];
+        yield 'changed, on a store that expires sessions itself' => ['expiring', $changed];
+    }
+
+    /**
+     * @param callable(Session): void $change
+     */
+    #[Test]
+    #[DataProvider('lateSaves')]
+    public function it_does_not_revive_a_session_that_expired_after_it_was_loaded(string $kind, callable $change): void
+    {
+        $inner = new MemorySessionStore();
+        $store = $kind === 'retaining' ? $inner : new ExpiringSessionStore($this->clock, $inner);
+        $manager = new SessionManager(
+            $store,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $this->clock,
+            new Lifetime(Duration::minutes(30)),
+        );
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+29 minutes');
+        $loaded = $manager->load(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($loaded);
+        $this->clock->advance('+2 minutes');
+
+        $change($loaded);
+
+        self::assertFalse($manager->save($loaded));
+        self::assertFalse($manager->save($loaded));
+        self::assertNull($manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(
+            $kind === 'retaining' ? '2026-10-05 12:30:00.250' : null,
+            $inner->read(new SessionId('sessionid-0000000000000000000001'))?->expiresAt->format('Y-m-d H:i:s.v'),
+        );
+    }
+
+    #[Test]
+    public function it_touches_nothing_for_a_session_that_expired_after_it_was_loaded(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::minutes(30)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $loaded = $manager->load(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($loaded);
+        $this->clock->advance('+30 minutes');
+
+        self::assertFalse($manager->save($loaded));
+        self::assertSame(
+            ['write sessionid-0000000000000000000001', 'read sessionid-0000000000000000000001'],
+            $this->store->calls,
+        );
+    }
+
+    #[Test]
+    public function it_does_not_move_a_session_that_expired_after_it_was_loaded_to_a_new_id(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::minutes(30)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $loaded = $manager->load(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($loaded);
+        $this->clock->advance('+31 minutes');
+
+        $manager->regenerate($loaded);
+
+        self::assertFalse($manager->save($loaded));
+        self::assertNull($this->store->inner->read($loaded->id));
+        self::assertNotContains('write ' . $loaded->id->value, $this->store->calls);
+    }
+
+    #[Test]
+    public function it_does_not_revive_an_expired_session_that_was_emptied_and_filled_again(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::minutes(30)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+31 minutes');
+
+        $session->clear();
+        self::assertFalse($manager->save($session));
+        $session->put('user', 43);
+
+        self::assertFalse($manager->save($session));
+        self::assertNull($manager->load(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_saves_a_loaded_session_until_the_moment_it_expires(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::minutes(30)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $loaded = $manager->load(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($loaded);
+        $this->clock->advance('+30 minutes -1 millisecond');
+
+        self::assertTrue($manager->save($loaded));
+
+        $this->clock->advance('+29 minutes');
+
+        self::assertTrue($manager->save($loaded));
+    }
+
     #[Test]
     public function it_stores_the_moment_a_session_was_first_stored_and_keeps_it(): void
     {
@@ -264,7 +385,7 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_deletes_instead_of_saving_a_session_whose_absolute_lifetime_has_passed(): void
+    public function it_does_not_save_a_session_whose_absolute_lifetime_has_passed(): void
     {
         $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
         $session = $manager->create();
@@ -277,7 +398,34 @@ final class SessionManagerTest extends TestCase
         $this->clock->advance('+90 minutes');
 
         self::assertFalse($manager->save($loaded));
+        self::assertNull($manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(['write sessionid-0000000000000000000001', 'touch sessionid-0000000000000000000001'], [
+            $this->store->calls[0],
+            $this->store->calls[1],
+        ]);
+        self::assertNotContains('delete sessionid-0000000000000000000001', $this->store->calls);
+    }
+
+    #[Test]
+    public function it_does_not_store_an_emptied_session_again_once_its_absolute_lifetime_has_passed(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+1 hour');
+        $session->clear();
+        $manager->save($session);
+        $this->clock->advance('+2 hours');
+
+        $session->put('user', 43);
+
+        self::assertFalse($manager->save($session));
         self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(
+            ['write sessionid-0000000000000000000001', 'delete sessionid-0000000000000000000001'],
+            $this->store->calls,
+        );
     }
 
     #[Test]
@@ -287,7 +435,7 @@ final class SessionManagerTest extends TestCase
         $session = $manager->create();
         $session->put('user', 42);
         $manager->save($session);
-        $this->clock->advance('+2 hours');
+        $this->clock->advance('+90 minutes');
 
         $manager->regenerate($session);
         $manager->save($session);
@@ -305,7 +453,7 @@ final class SessionManagerTest extends TestCase
         $session = $manager->create();
         $session->put('user', 42);
         $manager->save($session);
-        $this->clock->advance('+2 hours');
+        $this->clock->advance('+90 minutes');
 
         $manager->invalidate($session);
         $session->put('flash', 'Logged out');
@@ -313,8 +461,8 @@ final class SessionManagerTest extends TestCase
 
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000002'));
         self::assertNotNull($stored);
-        self::assertSame('2026-10-05 14:00:00.250', $stored->createdAt->format('Y-m-d H:i:s.v'));
-        self::assertSame('2026-10-05 16:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('2026-10-05 13:30:00.250', $stored->createdAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('2026-10-05 15:30:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
     }
 
     #[Test]

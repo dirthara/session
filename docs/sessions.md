@@ -69,6 +69,12 @@ $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Dur
 A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime.
 `load()` treats a session as expired from the moment its lifetime ends, and returns `null` for it.
 
+A session can also expire while a request has it loaded. The manager remembers the expiry the session was loaded or
+last saved with, and a save after that moment returns `false` and stores nothing, whether or not the values changed.
+The session is not revived, not moved to a new ID, and every later save of the same object returns `false` too. This
+does not depend on the store: a store that keeps expired sessions until they are pruned behaves the same as one whose
+backend removes them on its own.
+
 ### An absolute lifetime
 
 A session that is used often enough would live forever on its idle lifetime alone. An absolute lifetime, the optional
@@ -80,9 +86,9 @@ new Lifetime(idle: Duration::minutes(30), absolute: Duration::hours(12));
 
 The manager stores when a session was first stored. Every save then stores the session until the idle lifetime has
 passed, or until the absolute lifetime has passed since it was first stored, whichever comes first. A save after the
-absolute lifetime has passed deletes the session and returns `false`. Regenerating the ID keeps the moment the session
-was first stored, so it does not start the absolute lifetime again; invalidating does, because the session that comes
-after it belongs to a visitor who logged out.
+absolute lifetime has passed returns `false` and stores nothing, and the session is pruned like any expired one.
+Regenerating the ID keeps the moment the session was first stored, so it does not start the absolute lifetime again;
+invalidating does, because the session that comes after it belongs to a visitor who logged out.
 
 :::tip
 Set an absolute lifetime. It limits how long a stolen session ID can be used, whatever the thief does to keep the
@@ -151,6 +157,7 @@ next save store the session under its new ID.
 `save()` returns `false`, and stores nothing, when:
 
 - the session has no values, as [described above](#creating-loading-and-saving); or
+- the session expired, even if a request loaded it before it did, as [described above](#expiry); or
 - a loaded session is no longer in the store. Another request may have regenerated or invalidated it, or the store may
   have removed it. Its changes are lost.
 

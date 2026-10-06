@@ -62,7 +62,15 @@ final readonly class SessionManager implements SessionManagerContract
             return null;
         }
 
-        return $this->track(new SessionState($id, storedId: $id, values: $values, createdAt: $stored->createdAt));
+        return $this->track(
+            new SessionState(
+                $id,
+                storedId: $id,
+                values: $values,
+                createdAt: $stored->createdAt,
+                expiresAt: $stored->expiresAt,
+            ),
+        );
     }
 
     /**
@@ -72,12 +80,16 @@ final readonly class SessionManager implements SessionManagerContract
     public function save(Session $session): bool
     {
         $state = $this->state($session, 'save');
+        $now = $this->now();
+
+        if ($this->expired($state, $now)) {
+            return false;
+        }
 
         if ($state->values === []) {
             return $this->forget($state);
         }
 
-        $now = $this->now();
         $createdAt = $state->createdAt ?? $now;
         $expiresAt = $this->expiry($now, $createdAt);
 
@@ -89,22 +101,7 @@ final readonly class SessionManager implements SessionManagerContract
             return $this->update($state, $createdAt, $expiresAt);
         }
 
-        $stored = new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt);
-
-        if ($state->storedId !== null) {
-            if (!$this->store->delete($state->storedId)) {
-                return false;
-            }
-
-            $state->storedId = null;
-        }
-
-        $this->store->write($state->id, $stored);
-        $state->storedId = $state->id;
-        $state->createdAt = $createdAt;
-        $state->changed = false;
-
-        return true;
+        return $this->move($state, $createdAt, $expiresAt);
     }
 
     /**
@@ -147,19 +144,47 @@ final readonly class SessionManager implements SessionManagerContract
             : $this->store->touch($state->id, $expiresAt);
 
         if ($updated) {
+            $state->expiresAt = $expiresAt;
             $state->changed = false;
         }
 
         return $updated;
     }
 
+    /**
+     * @throws SessionSerialisationException
+     */
+    private function move(SessionState $state, DateTimeImmutable $createdAt, DateTimeImmutable $expiresAt): bool
+    {
+        $stored = new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt);
+
+        if ($state->storedId !== null && !$this->store->delete($state->storedId)) {
+            return false;
+        }
+
+        $state->storedId = null;
+        $this->store->write($state->id, $stored);
+        $state->storedId = $state->id;
+        $state->createdAt = $createdAt;
+        $state->expiresAt = $expiresAt;
+        $state->changed = false;
+
+        return true;
+    }
+
     private function forget(SessionState $state): bool
     {
         if ($state->storedId !== null && $this->store->delete($state->storedId)) {
             $state->storedId = null;
+            $state->expiresAt = null;
         }
 
         return false;
+    }
+
+    private function expired(SessionState $state, DateTimeImmutable $now): bool
+    {
+        return $state->storedId !== null && $state->expiresAt !== null && $state->expiresAt <= $now;
     }
 
     private function track(SessionState $state): Session

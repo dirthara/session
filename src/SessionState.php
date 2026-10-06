@@ -21,5 +21,6 @@ final class SessionState
         public array $values = [],
         public bool $changed = false,
         public ?DateTimeImmutable $createdAt = null,
+        public ?DateTimeImmutable $expiresAt = null,
     ) {}
 }
