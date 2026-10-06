@@ -71,6 +71,11 @@ final readonly class SessionManager implements SessionManagerContract
     public function save(Session $session): bool
     {
         $state = $this->state($session, 'save');
+
+        if ($state->values === []) {
+            return $this->forget($state);
+        }
+
         $stored = new StoredSession($this->serialiser->serialise($state->values), $this->expiry());
 
         if ($state->storedId !== null && $state->storedId->value === $state->id->value) {
@@ -107,6 +112,16 @@ final readonly class SessionManager implements SessionManagerContract
         $state = $this->state($session, 'invalidate');
         $state->values = [];
         $state->id = $this->ids->generate();
+    }
+
+    private function forget(SessionState $state): bool
+    {
+        if ($state->storedId !== null) {
+            $this->store->delete($state->storedId);
+            $state->storedId = null;
+        }
+
+        return false;
     }
 
     private function track(SessionState $state): Session

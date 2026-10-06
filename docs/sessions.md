@@ -20,6 +20,10 @@ A `SessionManager` works with the sessions in one store:
 Changes to a session stay in the object until it is saved. A session that is not saved is not stored, and a change that
 is not saved is lost, so save the session at the end of every request that uses it.
 
+A session without values is never stored. Saving a new, empty session stores nothing, and saving a stored session whose
+values were all removed deletes it; both return `false`. Visitors and crawlers that never put anything in their session
+therefore never take up space in the store. Once the session holds a value again, the next save stores it.
+
 `load()` returns a new object each time. Two objects loaded for the same ID do not see each other's changes.
 
 ## Values
@@ -102,15 +106,21 @@ $sessions->invalidate($session);
 $sessions->save($session);
 ```
 
-Saving deletes the old ID and stores the empty session under its new one, so the old ID no longer works anywhere.
+Saving deletes the old ID and, because the session is empty, stores nothing under the new one, and returns `false`. The
+old ID no longer works anywhere. A value put in the session afterwards, such as a message for the next page, makes the
+next save store the session under its new ID.
 
 ## When saving fails
 
 ## When a save stores nothing
 
-`save()` returns `false`, and stores nothing, when a loaded session is no longer in the store. Another request may have
-regenerated or invalidated it, or the store may have removed it. Its changes are lost, and the application should
-remove the visitor's cookie.
+`save()` returns `false`, and stores nothing, when:
+
+- the session has no values, as [described above](#creating-loading-and-saving); or
+- a loaded session is no longer in the store. Another request may have regenerated or invalidated it, or the store may
+  have removed it. Its changes are lost.
+
+Either way, there is no session behind the ID, and the application should remove the visitor's cookie.
 
 This is what keeps an old ID dead. Without it, a request that loaded the session before another request logged the
 visitor out, or regenerated the ID after they logged in, would write the old ID back when it finishes.

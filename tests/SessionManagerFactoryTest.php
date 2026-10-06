@@ -92,6 +92,7 @@ final class SessionManagerFactoryTest extends TestCase
         );
         $manager = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));
         $session = $manager->create();
+        $session->put('user', 42);
         $manager->save($session);
 
         $clock->advance('+30 minutes');
@@ -110,6 +111,7 @@ final class SessionManagerFactoryTest extends TestCase
         $first = $factory->create($configuration);
         $second = $factory->create($configuration);
         $session = $first->create();
+        $session->put('user', 42);
         $first->save($session);
 
         self::assertNotSame($first, $second);

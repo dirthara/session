@@ -88,7 +88,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_loads_the_values_of_a_saved_session_under_its_id(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', 42);
         $session->put('flash', null);
         $this->manager->save($session);
@@ -105,7 +105,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_stores_the_values_as_a_serialised_payload(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', 42);
 
         $this->manager->save($session);
@@ -121,7 +121,7 @@ final class SessionManagerTest extends TestCase
     {
         $user = new stdClass();
         $user->name = 'Ada';
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', $user);
         $this->manager->save($session);
 
@@ -148,7 +148,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_refuses_a_value_it_cannot_serialise_before_it_touches_the_store(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('callback', static fn(): int => 42);
 
         try {
@@ -162,7 +162,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_stores_a_session_until_its_lifetime_has_passed(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
 
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
 
@@ -181,7 +181,9 @@ final class SessionManagerTest extends TestCase
             new Lifetime(Duration::milliseconds(1500)),
         );
 
-        $manager->save($manager->create());
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
 
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
@@ -199,7 +201,9 @@ final class SessionManagerTest extends TestCase
             new Lifetime(Duration::hours(400 * 24)),
         );
 
-        $manager->save($manager->create());
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
 
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
@@ -209,7 +213,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_extends_the_lifetime_each_time_a_session_is_saved(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $this->clock->advance('+90 minutes');
 
@@ -222,7 +226,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_loads_a_session_until_the_moment_it_expires(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $this->clock->advance('+2 hours -1 millisecond');
 
         self::assertNotNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
@@ -231,7 +235,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_deletes_a_session_that_has_expired_instead_of_loading_it(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $this->clock->advance('+2 hours');
 
         self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
@@ -249,7 +253,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_regenerates_the_id_at_once_and_keeps_the_values(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', 42);
 
         $this->manager->regenerate($session);
@@ -262,7 +266,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_moves_a_regenerated_session_to_its_new_id_on_save(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', 42);
         $this->manager->save($session);
 
@@ -276,7 +280,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_replaces_a_stored_session_under_the_same_id(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $session->put('user', 42);
 
@@ -290,7 +294,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_deletes_the_stored_id_before_it_writes_the_new_one(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $this->manager->regenerate($session);
         $this->manager->regenerate($session);
@@ -309,7 +313,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_replaces_the_new_id_once_a_regenerated_session_is_saved(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $this->manager->regenerate($session);
         $this->manager->save($session);
@@ -330,7 +334,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_does_not_bring_back_a_session_that_another_request_regenerated(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $first = $this->loaded('sessionid-0000000000000000000001');
         $second = $this->loaded('sessionid-0000000000000000000001');
         $this->manager->regenerate($first);
@@ -345,7 +349,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_does_not_bring_back_a_session_that_another_request_invalidated(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $session->put('user', 42);
         $this->manager->save($session);
         $loggingOut = $this->loaded('sessionid-0000000000000000000001');
@@ -360,7 +364,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_does_not_store_a_new_id_for_a_session_that_another_request_regenerated(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $first = $this->loaded('sessionid-0000000000000000000001');
         $second = $this->loaded('sessionid-0000000000000000000001');
         $this->manager->regenerate($first);
@@ -374,7 +378,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_does_not_store_a_loaded_session_that_was_deleted_from_the_store(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $session = $this->loaded('sessionid-0000000000000000000001');
         $this->store->inner->delete(new SessionId('sessionid-0000000000000000000001'));
 
@@ -386,7 +390,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_leaves_the_session_stored_when_the_store_fails_to_delete_the_old_id(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $this->manager->regenerate($session);
         $this->store->throwingOperations = ['delete'];
@@ -409,7 +413,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_writes_the_new_id_on_the_next_save_when_the_store_fails_to_write_it(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->save($session);
         $this->manager->regenerate($session);
         $this->store->throwingOperations = ['write'];
@@ -430,7 +434,7 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_deletes_nothing_when_a_new_session_is_regenerated_before_its_first_save(): void
     {
-        $session = $this->manager->create();
+        $session = $this->filled();
         $this->manager->regenerate($session);
 
         self::assertTrue($this->manager->save($session));
@@ -440,23 +444,84 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_invalidates_by_clearing_the_values_and_regenerating_the_id(): void
     {
-        $session = $this->manager->create();
-        $session->put('user', 42);
+        $session = $this->filled();
         $this->manager->save($session);
 
         $this->manager->invalidate($session);
-        $this->manager->save($session);
 
         self::assertSame('sessionid-0000000000000000000002', $session->id->value);
         self::assertFalse($session->has('user'));
+        self::assertFalse($this->manager->save($session));
         self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
+    }
+
+    #[Test]
+    public function it_stores_an_invalidated_session_under_its_new_id_once_it_has_values_again(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $this->manager->invalidate($session);
+        $session->put('locale', 'en_GB');
+
+        self::assertTrue($this->manager->save($session));
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame('en_GB', $this->loaded('sessionid-0000000000000000000002')->get('locale'));
         self::assertFalse($this->loaded('sessionid-0000000000000000000002')->has('user'));
+    }
+
+    #[Test]
+    public function it_does_not_store_a_new_session_without_values(): void
+    {
+        $session = $this->manager->create();
+
+        self::assertFalse($this->manager->save($session));
+        self::assertSame([], $this->store->calls);
+    }
+
+    #[Test]
+    public function it_stores_a_new_session_once_it_has_values(): void
+    {
+        $session = $this->manager->create();
+        $this->manager->save($session);
+        $session->put('user', 42);
+
+        self::assertTrue($this->manager->save($session));
+        self::assertSame(['write sessionid-0000000000000000000001'], $this->store->calls);
+    }
+
+    #[Test]
+    public function it_deletes_a_stored_session_whose_values_were_cleared(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $session->clear();
+
+        self::assertFalse($this->manager->save($session));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(
+            ['write sessionid-0000000000000000000001', 'delete sessionid-0000000000000000000001'],
+            $this->store->calls,
+        );
+    }
+
+    #[Test]
+    public function it_stores_a_cleared_session_again_once_it_has_values_again(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $session->clear();
+        $this->manager->save($session);
+        $session->put('user', 43);
+
+        self::assertTrue($this->manager->save($session));
+        self::assertSame(43, $this->loaded('sessionid-0000000000000000000001')->get('user'));
     }
 
     #[Test]
     public function it_regenerates_a_loaded_session(): void
     {
-        $this->manager->save($this->manager->create());
+        $this->manager->save($this->filled());
         $loaded = $this->loaded('sessionid-0000000000000000000001');
 
         $this->manager->regenerate($loaded);
@@ -514,6 +579,14 @@ final class SessionManagerTest extends TestCase
         $this->expectExceptionObject(ForeignSessionException::unknown('save'));
 
         $this->manager->save($other->create());
+    }
+
+    private function filled(): Session
+    {
+        $session = $this->manager->create();
+        $session->put('user', 42);
+
+        return $session;
     }
 
     private function loaded(string $id): Session
