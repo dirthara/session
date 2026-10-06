@@ -10,7 +10,7 @@ interface SessionManager
 {
     public function create(): Session;
 
-    public function load(SessionId $id): Session;
+    public function load(SessionId $id): ?Session;
 
     public function save(Session $session): void;
 }

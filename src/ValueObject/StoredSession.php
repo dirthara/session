@@ -10,6 +10,6 @@ final readonly class StoredSession
 {
     public function __construct(
         public array $values,
-        public ?DateTimeImmutable $expiresAt,
+        public DateTimeImmutable $expiresAt,
     ) {}
 }

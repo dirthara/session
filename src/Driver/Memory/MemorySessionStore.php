@@ -15,7 +15,7 @@ final class MemorySessionStore implements SessionStore
         // TODO: Implement read() method.
     }
 
-    public function write(SessionId $id, StoredSession $data): void
+    public function write(SessionId $id, StoredSession $session): void
     {
         // TODO: Implement write() method.
     }

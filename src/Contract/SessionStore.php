@@ -11,7 +11,7 @@ interface SessionStore
 {
     public function read(SessionId $id): ?StoredSession;
 
-    public function write(SessionId $id, StoredSession $data): void;
+    public function write(SessionId $id, StoredSession $session): void;
 
     public function delete(SessionId $id): void;
 }

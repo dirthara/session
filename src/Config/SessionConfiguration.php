@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Config;
 
+use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\Exception\InvalidSessionConfigurationException;
 
 final readonly class SessionConfiguration
@@ -13,6 +14,7 @@ final readonly class SessionConfiguration
      */
     public function __construct(
         public string $driver,
+        public Duration $lifetime,
         private array $options = [],
     ) {}
 
