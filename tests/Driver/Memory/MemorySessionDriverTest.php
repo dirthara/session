@@ -45,7 +45,14 @@ final class MemorySessionDriverTest extends TestCase
         $second = $driver->create($configuration);
         $id = new SessionId('11111111111111111111111111111111');
 
-        $first->write($id, new StoredSession('user 42', new DateTimeImmutable('2026-10-05 14:00:00')));
+        $first->write(
+            $id,
+            new StoredSession(
+                'user 42',
+                new DateTimeImmutable('2026-10-05 10:00:00'),
+                new DateTimeImmutable('2026-10-05 14:00:00'),
+            ),
+        );
 
         self::assertNotSame($first, $second);
         self::assertNull($second->read($id));

@@ -9,14 +9,15 @@ description: The session store contract, the memory store, drivers, configuratio
 
 A `SessionStore` keeps sessions under their IDs. The manager does everything else: it generates IDs, serialises the
 values, decides when a session has expired, and moves a session to its new ID. A store sees only valid `SessionId`
-objects and `StoredSession` objects, each holding the session's string `payload` and the `expiresAt` moment it expires.
+objects and `StoredSession` objects, each holding the session's string `payload`, the `createdAt` moment it was first
+stored, and the `expiresAt` moment it expires.
 
 | Method | Does |
 | --- | --- |
 | `read(SessionId $id): ?StoredSession` | Returns the session under the ID, or `null` when there is none. |
 | `write(SessionId $id, StoredSession $session): void` | Stores a session under the ID, replacing any session already there. |
 | `replace(SessionId $id, StoredSession $session): bool` | Stores a session under the ID only when there already is one, and returns whether there was. |
-| `touch(SessionId $id, DateTimeImmutable $expiresAt): bool` | Changes only the expiry of the session under the ID when there is one, keeps its payload, and returns whether there was one. |
+| `touch(SessionId $id, DateTimeImmutable $expiresAt): bool` | Changes only the expiry of the session under the ID when there is one, keeps its payload and `createdAt`, and returns whether there was one. |
 | `delete(SessionId $id): bool` | Removes the session under the ID, and returns whether there was one. |
 | `prune(DateTimeImmutable $now): int` | Removes every session whose `expiresAt` is at or before `$now`, and returns how many it removed. |
 
@@ -116,10 +117,11 @@ $configuration = new SessionConfiguration('database', new Lifetime(Duration::hou
 | `lifetime` | `Lifetime` | How long a session lives. See [expiry](sessions.md#expiry). |
 | `options` | `array<string, mixed>` | The driver's options. Defaults to none. |
 
-A `Lifetime` takes its idle lifetime as a `Duration`, which is created in milliseconds, seconds, minutes, or hours, as
-`Duration::minutes(30)`, and holds a whole, non-negative number of milliseconds. A negative amount, or one that does
-not fit in an integer of milliseconds, throws an `InvalidDurationException`. A lifetime of zero or longer than 400
-days, the most browsers keep a cookie, throws an `InvalidSessionLifetimeException`.
+A `Lifetime` takes its idle lifetime, and optionally its absolute lifetime, as a `Duration`, which is created in
+milliseconds, seconds, minutes, or hours, as `Duration::minutes(30)`, and holds a whole, non-negative number of
+milliseconds. A negative amount, or one that does not fit in an integer of milliseconds, throws an
+`InvalidDurationException`. A lifetime of zero or longer than 400 days, the most browsers keep a cookie, throws an
+`InvalidSessionLifetimeException`.
 
 A driver reads its options with typed accessors:
 

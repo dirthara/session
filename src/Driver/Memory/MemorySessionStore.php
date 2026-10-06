@@ -45,7 +45,8 @@ final class MemorySessionStore implements SessionStore
             return false;
         }
 
-        $this->sessions[$id->value] = new StoredSession($this->sessions[$id->value]->payload, $expiresAt);
+        $stored = $this->sessions[$id->value];
+        $this->sessions[$id->value] = new StoredSession($stored->payload, $stored->createdAt, $expiresAt);
 
         return true;
     }

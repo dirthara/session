@@ -70,8 +70,30 @@ $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Dur
 A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime. `load()`
 treats a session as expired from the moment its lifetime ends, and returns `null` for it.
 
-A `Lifetime` is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
-throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum.
+### An absolute lifetime
+
+A session that is used often enough would live forever on its idle lifetime alone. An absolute lifetime, the optional
+second argument, ends it a fixed time after it was first stored, however often it is used:
+
+```php
+new Lifetime(idle: Duration::minutes(30), absolute: Duration::hours(12));
+```
+
+The manager stores when a session was first stored. Every save then stores the session until the idle lifetime has
+passed, or until the absolute lifetime has passed since it was first stored, whichever comes first. A save after the
+absolute lifetime has passed deletes the session and returns `false`. Regenerating the ID keeps the moment the session
+was first stored, so it does not start the absolute lifetime again; invalidating does, because the session that comes
+after it belongs to a visitor who logged out.
+
+:::tip
+Set an absolute lifetime. It limits how long a stolen session ID can be used, whatever the thief does to keep the
+session alive, and it makes visitors with long-lived sessions log in again now and then. Eight to twelve hours suits an
+application people log in to for a working day.
+:::
+
+Each lifetime is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
+throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum. An absolute lifetime
+shorter than the idle lifetime is allowed, and then the idle lifetime never ends a session.
 
 ## Pruning
 

@@ -101,6 +101,10 @@ final class MemorySessionStoreTest extends TestCase
         self::assertTrue($store->touch(new SessionId(self::FIRST_ID), $later));
         self::assertFalse($store->touch(new SessionId(self::SECOND_ID), $later));
         self::assertSame('user 1', $store->read(new SessionId(self::FIRST_ID))?->payload);
+        self::assertEquals(
+            new DateTimeImmutable('2026-10-05 10:00:00'),
+            $store->read(new SessionId(self::FIRST_ID))?->createdAt,
+        );
         self::assertSame($later, $store->read(new SessionId(self::FIRST_ID))?->expiresAt);
         self::assertNull($store->read(new SessionId(self::SECOND_ID)));
     }
@@ -109,7 +113,11 @@ final class MemorySessionStoreTest extends TestCase
     public function it_keeps_an_expired_session_because_expiry_is_up_to_the_manager(): void
     {
         $store = new MemorySessionStore();
-        $expired = new StoredSession('user 42', new DateTimeImmutable('2000-01-01 00:00:00'));
+        $expired = new StoredSession(
+            'user 42',
+            new DateTimeImmutable('2026-10-05 10:00:00'),
+            new DateTimeImmutable('2000-01-01 00:00:00'),
+        );
 
         $store->write(new SessionId(self::FIRST_ID), $expired);
 
@@ -146,15 +154,27 @@ final class MemorySessionStoreTest extends TestCase
         $store = new MemorySessionStore();
         $store->write(
             new SessionId(self::FIRST_ID),
-            new StoredSession('a', new DateTimeImmutable('2026-10-05 12:00:00')),
+            new StoredSession(
+                'a',
+                new DateTimeImmutable('2026-10-05 10:00:00'),
+                new DateTimeImmutable('2026-10-05 12:00:00'),
+            ),
         );
         $store->write(
             new SessionId(self::SECOND_ID),
-            new StoredSession('b', new DateTimeImmutable('2026-10-05 13:00:00')),
+            new StoredSession(
+                'b',
+                new DateTimeImmutable('2026-10-05 10:00:00'),
+                new DateTimeImmutable('2026-10-05 13:00:00'),
+            ),
         );
         $store->write(
             new SessionId(self::THIRD_ID),
-            new StoredSession('c', new DateTimeImmutable('2026-10-05 12:00:00.001')),
+            new StoredSession(
+                'c',
+                new DateTimeImmutable('2026-10-05 10:00:00'),
+                new DateTimeImmutable('2026-10-05 12:00:00.001'),
+            ),
         );
 
         self::assertSame(1, $store->prune(new DateTimeImmutable('2026-10-05 12:00:00')));
@@ -167,6 +187,10 @@ final class MemorySessionStoreTest extends TestCase
 
     private function stored(string $payload): StoredSession
     {
-        return new StoredSession($payload, new DateTimeImmutable('2026-10-05 14:00:00'));
+        return new StoredSession(
+            $payload,
+            new DateTimeImmutable('2026-10-05 10:00:00'),
+            new DateTimeImmutable('2026-10-05 14:00:00'),
+        );
     }
 }

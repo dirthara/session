@@ -16,9 +16,26 @@ final readonly class Lifetime
      */
     public function __construct(
         public Duration $idle,
+        public ?Duration $absolute = null,
     ) {
-        if ($idle->milliseconds === 0 || $idle->milliseconds > self::MAXIMUM_MILLISECONDS) {
-            throw InvalidSessionLifetimeException::outOfRange('idle', $idle->milliseconds, self::MAXIMUM_MILLISECONDS);
+        $this->validate('idle', $idle);
+
+        if ($absolute !== null) {
+            $this->validate('absolute', $absolute);
+        }
+    }
+
+    /**
+     * @throws InvalidSessionLifetimeException
+     */
+    private function validate(string $lifetime, Duration $duration): void
+    {
+        if ($duration->milliseconds === 0 || $duration->milliseconds > self::MAXIMUM_MILLISECONDS) {
+            throw InvalidSessionLifetimeException::outOfRange(
+                $lifetime,
+                $duration->milliseconds,
+                self::MAXIMUM_MILLISECONDS,
+            );
         }
     }
 }

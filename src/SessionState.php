@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session;
 
+use DateTimeImmutable;
 use Dirthara\Session\ValueObject\SessionId;
 
 /**
@@ -19,5 +20,6 @@ final class SessionState
         public ?SessionId $storedId,
         public array $values = [],
         public bool $changed = false,
+        public ?DateTimeImmutable $createdAt = null,
     ) {}
 }

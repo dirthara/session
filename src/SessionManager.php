@@ -7,6 +7,7 @@ namespace Dirthara\Session;
 use WeakMap;
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
+use Dirthara\Session\ValueObject\Duration;
 use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\Contract\SessionStore;
 use Dirthara\Session\ValueObject\SessionId;
@@ -17,6 +18,7 @@ use Dirthara\Session\Exception\ForeignSessionException;
 use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
 
+use function min;
 use function sprintf;
 
 final readonly class SessionManager implements SessionManagerContract
@@ -59,7 +61,7 @@ final readonly class SessionManager implements SessionManagerContract
             return null;
         }
 
-        return $this->track(new SessionState($id, storedId: $id, values: $values));
+        return $this->track(new SessionState($id, storedId: $id, values: $values, createdAt: $stored->createdAt));
     }
 
     /**
@@ -74,13 +76,19 @@ final readonly class SessionManager implements SessionManagerContract
             return $this->forget($state);
         }
 
-        $expiresAt = $this->expiry();
+        $now = $this->clock->now();
+        $createdAt = $state->createdAt ?? $now;
+        $expiresAt = $this->expiry($now, $createdAt);
 
-        if ($state->storedId !== null && $state->storedId->value === $state->id->value) {
-            return $this->update($state, $expiresAt);
+        if ($expiresAt <= $now) {
+            return $this->forget($state);
         }
 
-        $stored = new StoredSession($this->serialiser->serialise($state->values), $expiresAt);
+        if ($state->storedId !== null && $state->storedId->value === $state->id->value) {
+            return $this->update($state, $createdAt, $expiresAt);
+        }
+
+        $stored = new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt);
 
         if ($state->storedId !== null) {
             if (!$this->store->delete($state->storedId)) {
@@ -92,6 +100,7 @@ final readonly class SessionManager implements SessionManagerContract
 
         $this->store->write($state->id, $stored);
         $state->storedId = $state->id;
+        $state->createdAt = $createdAt;
         $state->changed = false;
 
         return true;
@@ -112,6 +121,7 @@ final readonly class SessionManager implements SessionManagerContract
     {
         $state = $this->state($session, 'invalidate');
         $state->values = [];
+        $state->createdAt = null;
         $state->id = $this->ids->generate();
     }
 
@@ -126,12 +136,12 @@ final readonly class SessionManager implements SessionManagerContract
     /**
      * @throws SessionSerialisationException
      */
-    private function update(SessionState $state, DateTimeImmutable $expiresAt): bool
+    private function update(SessionState $state, DateTimeImmutable $createdAt, DateTimeImmutable $expiresAt): bool
     {
         $updated = $state->changed
             ? $this->store->replace(
                 $state->id,
-                new StoredSession($this->serialiser->serialise($state->values), $expiresAt),
+                new StoredSession($this->serialiser->serialise($state->values), $createdAt, $expiresAt),
             )
             : $this->store->touch($state->id, $expiresAt);
 
@@ -168,10 +178,19 @@ final readonly class SessionManager implements SessionManagerContract
         return $this->states[$session] ?? throw ForeignSessionException::unknown($operation);
     }
 
-    private function expiry(): DateTimeImmutable
+    private function expiry(DateTimeImmutable $now, DateTimeImmutable $createdAt): DateTimeImmutable
     {
-        $milliseconds = $this->lifetime->idle->milliseconds;
+        $idle = $this->later($now, $this->lifetime->idle);
 
-        return $this->clock->now()->modify(sprintf('+%d milliseconds', $milliseconds));
+        if ($this->lifetime->absolute === null) {
+            return $idle;
+        }
+
+        return min($idle, $this->later($createdAt, $this->lifetime->absolute));
+    }
+
+    private function later(DateTimeImmutable $moment, Duration $duration): DateTimeImmutable
+    {
+        return $moment->modify(sprintf('+%d milliseconds', $duration->milliseconds));
     }
 }

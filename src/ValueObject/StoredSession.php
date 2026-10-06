@@ -10,6 +10,7 @@ final readonly class StoredSession
 {
     public function __construct(
         public string $payload,
+        public DateTimeImmutable $createdAt,
         public DateTimeImmutable $expiresAt,
     ) {}
 }

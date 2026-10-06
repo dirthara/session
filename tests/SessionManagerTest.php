@@ -139,7 +139,11 @@ final class SessionManagerTest extends TestCase
         $id = new SessionId('sessionid-0000000000000000000009');
         $this->store->inner->write(
             $id,
-            new StoredSession('not a payload', new DateTimeImmutable('2026-10-05 14:00:00')),
+            new StoredSession(
+                'not a payload',
+                new DateTimeImmutable('2026-10-05 10:00:00'),
+                new DateTimeImmutable('2026-10-05 14:00:00'),
+            ),
         );
 
         self::assertNull($this->manager->load($id));
@@ -208,6 +212,109 @@ final class SessionManagerTest extends TestCase
         $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
         self::assertSame('2027-11-09 12:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+    }
+
+    #[Test]
+    public function it_stores_the_moment_a_session_was_first_stored_and_keeps_it(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $this->clock->advance('+1 hour');
+        $session->put('locale', 'en_GB');
+        $this->manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($stored);
+        self::assertSame('2026-10-05 12:00:00.250', $stored->createdAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('2026-10-05 15:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+    }
+
+    #[Test]
+    public function it_never_lets_a_session_live_past_its_absolute_lifetime(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+90 minutes');
+
+        $manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($stored);
+        self::assertSame('2026-10-05 15:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+    }
+
+    #[Test]
+    public function it_loads_nothing_once_the_absolute_lifetime_has_passed_however_often_it_was_saved(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->clock->advance('+30 minutes');
+            $manager->save($session);
+        }
+
+        $this->clock->advance('+30 minutes');
+
+        self::assertNull($manager->load(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_deletes_instead_of_saving_a_session_whose_absolute_lifetime_has_passed(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+90 minutes');
+        $manager->save($session);
+        $loaded = $manager->load(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($loaded);
+        $this->clock->advance('+90 minutes');
+
+        self::assertFalse($manager->save($loaded));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_keeps_the_absolute_lifetime_when_a_session_is_regenerated(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+2 hours');
+
+        $manager->regenerate($session);
+        $manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000002'));
+        self::assertNotNull($stored);
+        self::assertSame('2026-10-05 12:00:00.250', $stored->createdAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('2026-10-05 15:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+    }
+
+    #[Test]
+    public function it_starts_the_absolute_lifetime_again_when_a_session_is_invalidated(): void
+    {
+        $manager = $this->manager(new Lifetime(Duration::hours(2), Duration::hours(3)));
+        $session = $manager->create();
+        $session->put('user', 42);
+        $manager->save($session);
+        $this->clock->advance('+2 hours');
+
+        $manager->invalidate($session);
+        $session->put('flash', 'Logged out');
+        $manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000002'));
+        self::assertNotNull($stored);
+        self::assertSame('2026-10-05 14:00:00.250', $stored->createdAt->format('Y-m-d H:i:s.v'));
+        self::assertSame('2026-10-05 16:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
     }
 
     #[Test]
@@ -692,6 +799,17 @@ final class SessionManagerTest extends TestCase
         $this->expectExceptionObject(ForeignSessionException::unknown('save'));
 
         $this->manager->save($other->create());
+    }
+
+    private function manager(Lifetime $lifetime): SessionManager
+    {
+        return new SessionManager(
+            $this->store,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $this->clock,
+            $lifetime,
+        );
     }
 
     private function filled(): Session
