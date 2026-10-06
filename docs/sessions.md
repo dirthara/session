@@ -60,15 +60,14 @@ into copies. A value the serialiser cannot handle, such as a closure, makes `sav
 Every save stores the session until its idle lifetime has passed, measured from the moment of saving. A session whose
 values did not change since it was loaded or last saved is not written again: the manager only moves its expiry, which
 is far cheaper for a store such as a database. Any `put()`, `remove()`, or `clear()` counts as a change, even one that
-puts the value that was already there. The lifetime
-comes from the configuration:
+puts the value that was already there. The lifetime comes from the configuration:
 
 ```php
 $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));
 ```
 
-A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime. `load()`
-treats a session as expired from the moment its lifetime ends, and returns `null` for it.
+A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime.
+`load()` treats a session as expired from the moment its lifetime ends, and returns `null` for it.
 
 ### An absolute lifetime
 
@@ -109,8 +108,8 @@ Call it regularly from a scheduled job, rather than during requests. How often d
 application creates; every few minutes to once an hour suits most. A store for a backend that expires keys itself can
 have nothing to do.
 
-Because only `prune()` deletes expired sessions, servers whose clocks differ slightly never delete a session that
-another server still considers live because one of them happened to load it.
+Because loading never deletes, a server whose clock runs slightly ahead cannot delete a session that the other servers
+still consider live just by loading it.
 
 ## Regenerating the ID
 
@@ -147,8 +146,6 @@ Saving deletes the old ID and, because the session is empty, stores nothing unde
 old ID no longer works anywhere. A value put in the session afterwards, such as a message for the next page, makes the
 next save store the session under its new ID.
 
-## When saving fails
-
 ## When a save stores nothing
 
 `save()` returns `false`, and stores nothing, when:
@@ -167,14 +164,15 @@ visitor out, or regenerated the ID after they logged in, would write the old ID 
 A store reports a failure by throwing; the manager does not catch it. When deleting the old ID of a regenerated session
 fails, nothing has changed, and the old ID keeps working until the session is saved again. When writing the new ID
 fails after the old ID was deleted, the session is in neither, and saving it again stores it under its new ID. The
-manager deletes first on purpose: a failure in between logs the visitor out rather than leaving two working IDs.
+manager deletes first on purpose: a failure in between logs the visitor out rather than leaving two working IDs. When
+writing the changes of a session under the same ID fails, the session keeps them, and the next save writes them.
 
 ## Concurrent requests
 
 Sessions are not locked. When two requests load the same session and both save it, the one that saves last wins, and
-the other's changes are lost. A request that saves after another request regenerated or invalidated the session stores
-nothing, as [described above](#when-a-save-stores-nothing). Keep values that concurrent requests both change, such as counters, out of the session,
-or make sure only one request changes them.
+the other's changes are lost. A request that saves after another request regenerated or invalidated the
+session stores nothing, as [described above](#when-a-save-stores-nothing). Keep values that concurrent requests both
+change, such as counters, out of the session, or make sure only one request changes them.
 
 ## Sessions belong to their manager
 
