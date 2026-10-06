@@ -34,32 +34,33 @@ final class ForeignSessionExceptionTest extends TestCase
     public function it_keeps_a_previous_exception_and_its_context(): void
     {
         $previous = new InvalidArgumentException('cause');
-        $exception = new ForeignSessionException('message', 3, $previous, ['class' => 'Missing']);
+        $exception = new ForeignSessionException('message', 3, $previous, ['operation' => 'Missing']);
 
         self::assertSame('message', $exception->getMessage());
         self::assertSame(3, $exception->getCode());
         self::assertSame($previous, $exception->getPrevious());
-        self::assertSame(['class' => 'Missing'], $exception->context);
+        self::assertSame(['operation' => 'Missing'], $exception->context);
     }
 
     #[Test]
     public function it_merges_what_is_added_to_its_context(): void
     {
-        $exception = new ForeignSessionException(context: ['class' => 'Missing', 'kept' => true]);
+        $exception = new ForeignSessionException(context: ['operation' => 'Missing', 'kept' => true]);
 
-        self::assertSame($exception, $exception->addContext(['class' => 'Replaced', 'session' => 'default']));
-        self::assertSame(['class' => 'Replaced', 'kept' => true, 'session' => 'default'], $exception->context);
+        self::assertSame($exception, $exception->addContext(['operation' => 'Replaced', 'session' => 'default']));
+        self::assertSame(['operation' => 'Replaced', 'kept' => true, 'session' => 'default'], $exception->context);
     }
 
     #[Test]
-    public function it_describes_a_session_that_cannot_be_saved(): void
+    public function it_describes_a_session_the_manager_did_not_create_or_load(): void
     {
-        $exception = ForeignSessionException::cannotBeSaved("class@anonymous\0/app/src/Session.php:3$0");
+        $exception = ForeignSessionException::unknown('save
+forged');
 
         self::assertSame(
-            'Unable to save a session of class "class@anonymous\\000/app/src/Session.php:3$0": a session manager saves only the sessions that a session manager creates or loads.',
+            'Unable to save\nforged the session: this session manager did not create or load it.',
             $exception->getMessage(),
         );
-        self::assertSame(['class' => 'class@anonymous\\000/app/src/Session.php:3$0'], $exception->context);
+        self::assertSame(['operation' => 'save\nforged'], $exception->context);
     }
 }

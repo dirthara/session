@@ -16,8 +16,8 @@ application, so the package works with any HTTP layer.
 
 | Piece | Does | Read |
 | --- | --- | --- |
-| `Session` | Holds a session's values, and regenerates or invalidates its ID | [Sessions](sessions.md) |
-| `SessionManager` | Creates, loads, and saves sessions, and expires them | [Sessions](sessions.md) |
+| `Session` | Holds a session's values | [Sessions](sessions.md) |
+| `SessionManager` | Creates, loads, saves, regenerates, invalidates, and expires sessions | [Sessions](sessions.md) |
 | `SessionId` | A validated session ID | [Session IDs](session-ids.md) |
 | `RandomSessionIdGenerator` | Generates session IDs from 256 random bits | [Session IDs](session-ids.md) |
 | `NativeSessionSerialiser` | Turns session values into a payload and back | [Serialisation](serialisation.md) |

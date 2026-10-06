@@ -8,6 +8,7 @@ use stdClass;
 use DateTimeImmutable;
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
+use Dirthara\Session\SessionState;
 use Dirthara\Session\SessionManager;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
@@ -17,9 +18,9 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Dirthara\Session\Tests\Fixtures\TestClock;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Dirthara\Session\ValueObject\StoredSession;
 use Dirthara\Session\Exception\HasExceptionContext;
-use Dirthara\Session\Tests\Fixtures\ForeignSession;
 use Dirthara\Session\Driver\Memory\MemorySessionStore;
 use Dirthara\Session\Exception\ForeignSessionException;
 use Dirthara\Session\Serialiser\NativeSessionSerialiser;
@@ -30,6 +31,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
 #[CoversClass(SessionManager::class)]
 #[UsesClass(Session::class)]
+#[UsesClass(SessionState::class)]
 #[UsesClass(Duration::class)]
 #[UsesClass(Lifetime::class)]
 #[UsesClass(SessionId::class)]
@@ -65,9 +67,8 @@ final class SessionManagerTest extends TestCase
     {
         $session = $this->manager->create();
 
-        self::assertInstanceOf(Session::class, $session);
         self::assertSame('sessionid-0000000000000000000001', $session->id->value);
-        self::assertSame([], $session->values);
+        self::assertFalse($session->has('user'));
         self::assertSame([], $this->store->calls);
     }
 
@@ -94,10 +95,11 @@ final class SessionManagerTest extends TestCase
 
         $loaded = $this->manager->load(new SessionId('sessionid-0000000000000000000001'));
 
-        self::assertInstanceOf(Session::class, $loaded);
+        self::assertNotNull($loaded);
         self::assertNotSame($session, $loaded);
         self::assertSame('sessionid-0000000000000000000001', $loaded->id->value);
-        self::assertSame(['user' => 42, 'flash' => null], $loaded->values);
+        self::assertSame(42, $loaded->get('user'));
+        self::assertTrue($loaded->has('flash'));
     }
 
     #[Test]
@@ -245,52 +247,65 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_moves_a_regenerated_session_to_its_new_id(): void
+    public function it_regenerates_the_id_at_once_and_keeps_the_values(): void
+    {
+        $session = $this->manager->create();
+        $session->put('user', 42);
+
+        $this->manager->regenerate($session);
+
+        self::assertSame('sessionid-0000000000000000000002', $session->id->value);
+        self::assertSame(42, $session->get('user'));
+        self::assertSame([], $this->store->calls);
+    }
+
+    #[Test]
+    public function it_moves_a_regenerated_session_to_its_new_id_on_save(): void
     {
         $session = $this->manager->create();
         $session->put('user', 42);
         $this->manager->save($session);
 
-        $session->regenerate();
+        $this->manager->regenerate($session);
         $this->manager->save($session);
 
         self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
-        self::assertSame(['user' => 42], $this->loaded('sessionid-0000000000000000000002')->values);
-        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(42, $this->loaded('sessionid-0000000000000000000002')->get('user'));
     }
 
     #[Test]
-    public function it_writes_the_new_id_before_it_deletes_the_ids_a_session_replaced(): void
+    public function it_writes_the_new_id_before_it_deletes_the_stored_id(): void
     {
         $session = $this->manager->create();
-        $session->regenerate();
-        $session->regenerate();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
+        $this->manager->regenerate($session);
 
         $this->manager->save($session);
 
         self::assertSame(
             [
+                'write sessionid-0000000000000000000001',
                 'write sessionid-0000000000000000000003',
                 'delete sessionid-0000000000000000000001',
-                'delete sessionid-0000000000000000000002',
             ],
             $this->store->calls,
         );
-        self::assertInstanceOf(Session::class, $session);
-        self::assertSame([], $session->replacedIds);
     }
 
     #[Test]
-    public function it_deletes_the_replaced_ids_only_once(): void
+    public function it_deletes_the_stored_id_only_once(): void
     {
         $session = $this->manager->create();
-        $session->regenerate();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
         $this->manager->save($session);
 
         $this->manager->save($session);
 
         self::assertSame(
             [
+                'write sessionid-0000000000000000000001',
                 'write sessionid-0000000000000000000002',
                 'delete sessionid-0000000000000000000001',
                 'write sessionid-0000000000000000000002',
@@ -300,53 +315,71 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_stores_an_invalidated_session_empty_under_a_new_id(): void
+    public function it_deletes_nothing_when_a_new_session_is_regenerated_before_its_first_save(): void
+    {
+        $session = $this->manager->create();
+        $this->manager->regenerate($session);
+
+        $this->manager->save($session);
+
+        self::assertSame(['write sessionid-0000000000000000000002'], $this->store->calls);
+    }
+
+    #[Test]
+    public function it_invalidates_by_clearing_the_values_and_regenerating_the_id(): void
     {
         $session = $this->manager->create();
         $session->put('user', 42);
         $this->manager->save($session);
 
-        $session->invalidate();
+        $this->manager->invalidate($session);
         $this->manager->save($session);
 
+        self::assertSame('sessionid-0000000000000000000002', $session->id->value);
+        self::assertFalse($session->has('user'));
         self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
-        self::assertSame([], $this->loaded('sessionid-0000000000000000000002')->values);
+        self::assertFalse($this->loaded('sessionid-0000000000000000000002')->has('user'));
     }
 
     #[Test]
-    public function it_regenerates_a_loaded_session_with_its_own_generator(): void
+    public function it_regenerates_a_loaded_session(): void
     {
         $this->manager->save($this->manager->create());
         $loaded = $this->loaded('sessionid-0000000000000000000001');
 
-        $loaded->regenerate();
+        $this->manager->regenerate($loaded);
 
         self::assertSame('sessionid-0000000000000000000002', $loaded->id->value);
     }
 
     #[Test]
-    public function it_keeps_the_replaced_ids_when_the_store_fails_to_write(): void
+    public function it_keeps_the_stored_id_when_the_store_fails_to_write(): void
     {
         $session = $this->manager->create();
-        $session->regenerate();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
         $this->store->throwingOperations = ['write'];
 
         try {
             $this->manager->save($session);
             self::fail('A failed write was not reported.');
         } catch (ContextualException) {
-            self::assertSame(['write sessionid-0000000000000000000002'], $this->store->calls);
+            self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
         }
 
-        self::assertInstanceOf(Session::class, $session);
-        self::assertSame(['sessionid-0000000000000000000001'], [$session->replacedIds[0]->value]);
+        $this->store->throwingOperations = [];
+        $this->manager->save($session);
+
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
     }
 
     #[Test]
-    public function it_deletes_the_replaced_ids_on_the_next_save_when_the_store_fails_to_delete(): void
+    public function it_deletes_the_stored_id_on_the_next_save_when_the_store_fails_to_delete(): void
     {
         $session = $this->manager->create();
-        $session->regenerate();
+        $this->manager->save($session);
+        $this->manager->regenerate($session);
         $this->store->throwingOperations = ['delete'];
 
         try {
@@ -359,36 +392,65 @@ final class SessionManagerTest extends TestCase
         $this->store->throwingOperations = [];
         $this->manager->save($session);
 
-        self::assertSame(
-            [
-                'write sessionid-0000000000000000000002',
-                'delete sessionid-0000000000000000000001',
-                'write sessionid-0000000000000000000002',
-                'delete sessionid-0000000000000000000001',
-            ],
-            $this->store->calls,
-        );
-        self::assertInstanceOf(Session::class, $session);
-        self::assertSame([], $session->replacedIds);
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    /**
+     * @return iterable<string, array{callable(SessionManager, Session): void, string}>
+     */
+    public static function operations(): iterable
+    {
+        yield 'save' => [static fn(SessionManager $manager, Session $session) => $manager->save($session), 'save'];
+        yield 'regenerate' => [
+            static fn(SessionManager $manager, Session $session) => $manager->regenerate($session),
+            'regenerate',
+        ];
+        yield 'invalidate' => [
+            static fn(SessionManager $manager, Session $session) => $manager->invalidate($session),
+            'invalidate',
+        ];
+    }
+
+    /**
+     * @param callable(SessionManager, Session): void $operation
+     */
+    #[Test]
+    #[DataProvider('operations')]
+    public function it_refuses_a_session_it_did_not_create_or_load(callable $operation, string $name): void
+    {
+        $session = new Session(new SessionState(new SessionId('sessionid-chosen-00000000000000001'), storedId: null));
+
+        try {
+            $operation($this->manager, $session);
+            self::fail('A session the manager did not create or load was accepted.');
+        } catch (ForeignSessionException $exception) {
+            self::assertSame(['operation' => $name], $exception->context);
+        }
+
+        self::assertSame('sessionid-chosen-00000000000000001', $session->id->value);
+        self::assertSame([], $this->store->calls);
     }
 
     #[Test]
-    public function it_refuses_to_save_a_session_it_did_not_create_or_load(): void
+    public function it_refuses_a_session_another_manager_created(): void
     {
-        try {
-            $this->manager->save(new ForeignSession(new SessionId('sessionid-foreign-0000000000000001')));
-            self::fail('A foreign session was saved.');
-        } catch (ForeignSessionException $exception) {
-            self::assertSame(['class' => ForeignSession::class], $exception->context);
-        }
+        $other = new SessionManager(
+            new MemorySessionStore(),
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $this->clock,
+            new Lifetime(Duration::hours(2)),
+        );
 
-        self::assertSame([], $this->store->calls);
+        $this->expectExceptionObject(ForeignSessionException::unknown('save'));
+
+        $this->manager->save($other->create());
     }
 
     private function loaded(string $id): Session
     {
         $session = $this->manager->load(new SessionId($id));
-        self::assertInstanceOf(Session::class, $session);
+        self::assertNotNull($session);
 
         return $session;
     }

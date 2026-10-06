@@ -6,6 +6,7 @@ namespace Dirthara\Session\Tests;
 
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
+use Dirthara\Session\SessionState;
 use Dirthara\Session\SessionManager;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
@@ -29,6 +30,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
 #[CoversClass(SessionManagerFactory::class)]
 #[UsesClass(Session::class)]
+#[UsesClass(SessionState::class)]
 #[UsesClass(Duration::class)]
 #[UsesClass(Lifetime::class)]
 #[UsesClass(SessionId::class)]

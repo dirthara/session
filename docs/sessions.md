@@ -14,6 +14,8 @@ A `SessionManager` works with the sessions in one store:
 | `create(): Session` | Returns a new, empty session with a new ID. Nothing is stored until it is saved. |
 | `load(SessionId $id): ?Session` | Returns the session stored under the ID, or `null` when there is none or it has expired. |
 | `save(Session $session): void` | Stores the session's values under its ID, and starts its lifetime again. |
+| `regenerate(Session $session): void` | Gives the session a new ID. See [regenerating the ID](#regenerating-the-id). |
+| `invalidate(Session $session): void` | Removes the session's values and gives it a new ID. See [invalidating](#invalidating). |
 
 Changes to a session stay in the object until it is saved. A session that is not saved is not stored, and a change that
 is not saved is lost, so save the session at the end of every request that uses it.
@@ -71,11 +73,11 @@ the memory store never does.
 
 ## Regenerating the ID
 
-`regenerate()` gives a session a new ID and keeps its values. Regenerate the session whenever the visitor's privileges
-change, most importantly right after they log in:
+The manager's `regenerate()` gives a session a new ID at once and keeps its values. Regenerate the session whenever the
+visitor's privileges change, most importantly right after they log in:
 
 ```php
-$session->regenerate();
+$sessions->regenerate($session);
 $session->put('user', $user->id);
 
 $sessions->save($session);
@@ -85,16 +87,17 @@ An attacker who managed to plant a session ID on a visitor, or saw it before the
 that no longer leads anywhere. This defence against session fixation only works when the application regenerates; the
 package cannot know when privileges change.
 
-The new ID takes effect on save: the manager writes the session under its new ID, and then deletes every ID the
-session replaced since it was last saved. Send the visitor the new ID after saving.
+`$session->id` is the new ID straight away, but the store only learns about it on save: the manager writes the session
+under its new ID, and then deletes the ID it was stored under. Regenerating several times before a save stores only the
+last ID. Send the visitor the new ID after saving.
 
 ## Invalidating
 
-`invalidate()` removes every value and gives the session a new ID, as `clear()` followed by `regenerate()` does. Use it
-when the visitor logs out:
+The manager's `invalidate()` removes every value and gives the session a new ID, as `clear()` followed by
+`regenerate()` does. Use it when the visitor logs out:
 
 ```php
-$session->invalidate();
+$sessions->invalidate($session);
 
 $sessions->save($session);
 ```
@@ -104,9 +107,8 @@ Saving stores the empty session under its new ID and deletes the old one, so the
 ## When saving fails
 
 A store reports a failure by throwing; the manager does not catch it. When writing the session fails, nothing is
-deleted and the session keeps the IDs it replaced, so saving it again finishes the job. When deleting a replaced ID
-fails, the session is already stored under its new ID, and it keeps the replaced IDs that are left, so saving it again
-deletes them. Until then, an old ID keeps working.
+deleted, so saving it again finishes the job. When deleting the old ID fails, the session is already stored under its
+new ID, and saving it again deletes the old one. Until then, the old ID keeps working.
 
 ## Concurrent requests
 
@@ -114,7 +116,11 @@ Sessions are not locked. When two requests load the same session and both save i
 the other's changes are lost. Keep values that concurrent requests both change, such as counters, out of the session,
 or make sure only one request changes them.
 
-## Saving foreign sessions
+## Sessions belong to their manager
 
-The manager saves the `Session` objects that a manager creates or loads. Saving another implementation of the
-`Session` contract throws a `ForeignSessionException`.
+A manager only saves, regenerates, and invalidates the sessions it created or loaded itself. A `Session` built by hand,
+or one from another manager, throws a `ForeignSessionException`. An application therefore cannot store a session under
+an ID it chose, such as one taken from a cookie: every ID a manager stores came from its generator.
+
+`Session` is a final class rather than a contract. What the manager needs to know about a session, such as the ID it is
+stored under, stays between the two.

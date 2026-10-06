@@ -23,14 +23,14 @@ final class ForeignSessionException extends InvalidArgumentException implements 
         $this->context = $context;
     }
 
-    public static function cannotBeSaved(string $class): self
+    public static function unknown(string $operation): self
     {
         return new self(
             message: sprintf(
-                'Unable to save a session of class "%s": a session manager saves only the sessions that a session manager creates or loads.',
-                self::printable($class),
+                'Unable to %s the session: this session manager did not create or load it.',
+                self::printable($operation),
             ),
-            context: ['class' => self::printable($class)],
+            context: ['operation' => self::printable($operation)],
         );
     }
 }

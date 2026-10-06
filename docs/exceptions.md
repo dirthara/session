@@ -38,7 +38,7 @@ These are thrown while an application is being set up, and point to a mistake in
 | `InvalidSessionIdException` | `InvalidArgumentException` | A value is not a valid session ID. Its context holds only the length of the value. See [session IDs](session-ids.md). |
 | `SessionSerialisationException` | `RuntimeException` | Session values cannot be serialised, or a payload cannot be deserialised. `load()` treats an unreadable payload as a missing session. See [serialisation](serialisation.md). |
 | `SessionIdGenerationException` | `RuntimeException` | The random source fails to provide the bytes for a new session ID. See [session IDs](session-ids.md#generating-ids). |
-| `ForeignSessionException` | `InvalidArgumentException` | A manager is asked to save a `Session` that no manager created or loaded. See [sessions](sessions.md#saving-foreign-sessions). |
+| `ForeignSessionException` | `InvalidArgumentException` | A manager is asked to save, regenerate, or invalidate a `Session` it did not create or load. See [sessions](sessions.md#sessions-belong-to-their-manager). |
 
 A visitor can send a cookie that is not a session ID at any time. Read it with `SessionId::tryFrom()`, which returns
 `null` instead of throwing an `InvalidSessionIdException`, and start a new session.
@@ -46,5 +46,4 @@ A visitor can send a cookie that is not a session ID at any time. Read it with `
 The manager does not catch what a store throws. Exceptions from a driver package's store implement `SessionException`
 as well; see [stores and drivers](drivers.md#the-store-contract) and [when saving fails](sessions.md#when-saving-fails).
 
-Names that appear in messages and context, such as a driver name or the class of a foreign session, have their control
-characters escaped, so a name cannot forge a line in a log.
+Names that appear in messages and context, such as a driver name, have their control characters escaped, so a name cannot forge a line in a log.

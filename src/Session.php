@@ -5,66 +5,41 @@ declare(strict_types=1);
 namespace Dirthara\Session;
 
 use Dirthara\Session\ValueObject\SessionId;
-use Dirthara\Session\Contract\SessionIdGenerator;
-use Dirthara\Session\Contract\Session as SessionContract;
 
 use function array_key_exists;
 
-final class Session implements SessionContract
+final class Session
 {
-    /**
-     * @var list<SessionId>
-     */
-    public private(set) array $replacedIds = [];
+    public SessionId $id {
+        get => $this->state->id;
+    }
 
-    /**
-     * @param array<array-key, mixed> $values
-     */
     public function __construct(
-        public private(set) SessionId $id,
-        private readonly SessionIdGenerator $ids,
-        public private(set) array $values = [],
+        private readonly SessionState $state,
     ) {}
 
     public function has(string $key): bool
     {
-        return array_key_exists($key, $this->values);
+        return array_key_exists($key, $this->state->values);
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        return array_key_exists($key, $this->values) ? $this->values[$key] : $default;
+        return array_key_exists($key, $this->state->values) ? $this->state->values[$key] : $default;
     }
 
     public function put(string $key, mixed $value): void
     {
-        $this->values[$key] = $value;
+        $this->state->values[$key] = $value;
     }
 
     public function remove(string $key): void
     {
-        unset($this->values[$key]);
+        unset($this->state->values[$key]);
     }
 
     public function clear(): void
     {
-        $this->values = [];
-    }
-
-    public function regenerate(): void
-    {
-        $this->replacedIds[] = $this->id;
-        $this->id = $this->ids->generate();
-    }
-
-    public function invalidate(): void
-    {
-        $this->clear();
-        $this->regenerate();
-    }
-
-    public function forgetReplacedIds(): void
-    {
-        $this->replacedIds = [];
+        $this->state->values = [];
     }
 }

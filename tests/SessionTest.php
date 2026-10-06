@@ -7,35 +7,37 @@ namespace Dirthara\Session\Tests;
 use stdClass;
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
+use Dirthara\Session\SessionState;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\CoversClass;
-use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 
 #[CoversClass(Session::class)]
+#[CoversClass(SessionState::class)]
 #[UsesClass(SessionId::class)]
 final class SessionTest extends TestCase
 {
     private const string ID = 'sessionid-original-0000000000000';
 
     #[Test]
-    public function it_carries_its_id_and_values(): void
+    public function it_reads_its_id_from_its_state(): void
     {
-        $session = $this->session(['user' => 42]);
+        $state = new SessionState(new SessionId(self::ID), storedId: null);
+        $session = new Session($state);
 
-        self::assertSame(self::ID, $session->id->value);
-        self::assertSame(['user' => 42], $session->values);
-        self::assertSame([], $session->replacedIds);
+        $state->id = new SessionId('sessionid-replaced-0000000000000');
+
+        self::assertSame('sessionid-replaced-0000000000000', $session->id->value);
     }
 
     #[Test]
     public function it_starts_without_values_by_default(): void
     {
-        $session = new Session(new SessionId(self::ID), new SequentialSessionIdGenerator());
+        $state = new SessionState(new SessionId(self::ID), storedId: null);
 
-        self::assertSame([], $session->values);
-        self::assertFalse($session->has('user'));
+        self::assertSame([], $state->values);
+        self::assertFalse(new Session($state)->has('user'));
     }
 
     #[Test]
@@ -51,9 +53,8 @@ final class SessionTest extends TestCase
     public function it_returns_the_value_under_a_key(): void
     {
         $user = new stdClass();
-        $session = $this->session(['user' => $user]);
 
-        self::assertSame($user, $session->get('user'));
+        self::assertSame($user, $this->session(['user' => $user])->get('user'));
     }
 
     #[Test]
@@ -68,98 +69,47 @@ final class SessionTest extends TestCase
     }
 
     #[Test]
-    public function it_puts_and_replaces_a_value(): void
+    public function it_puts_and_replaces_a_value_in_its_state(): void
     {
-        $session = $this->session();
+        $state = new SessionState(new SessionId(self::ID), storedId: null);
+        $session = new Session($state);
 
         $session->put('user', 42);
         $session->put('locale', 'en_GB');
         $session->put('user', 43);
 
-        self::assertSame(['user' => 43, 'locale' => 'en_GB'], $session->values);
+        self::assertSame(['user' => 43, 'locale' => 'en_GB'], $state->values);
     }
 
     #[Test]
     public function it_removes_a_key_and_keeps_the_others(): void
     {
-        $session = $this->session(['user' => 42, 'locale' => 'en_GB']);
+        $state = new SessionState(new SessionId(self::ID), storedId: null, values: ['user' => 42, 'locale' => 'en_GB']);
+        $session = new Session($state);
 
         $session->remove('user');
         $session->remove('missing');
 
-        self::assertSame(['locale' => 'en_GB'], $session->values);
+        self::assertSame(['locale' => 'en_GB'], $state->values);
     }
 
     #[Test]
     public function it_clears_every_value_and_keeps_its_id(): void
     {
-        $session = $this->session(['user' => 42, 'locale' => 'en_GB']);
+        $state = new SessionState(new SessionId(self::ID), storedId: null, values: ['user' => 42, 'locale' => 'en_GB']);
+        $session = new Session($state);
 
         $session->clear();
 
-        self::assertSame([], $session->values);
+        self::assertSame([], $state->values);
         self::assertSame(self::ID, $session->id->value);
-        self::assertSame([], $session->replacedIds);
-    }
-
-    #[Test]
-    public function it_regenerates_its_id_and_keeps_its_values(): void
-    {
-        $session = $this->session(['user' => 42]);
-        $original = $session->id;
-
-        $session->regenerate();
-
-        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
-        self::assertSame([$original], $session->replacedIds);
-        self::assertSame(['user' => 42], $session->values);
-    }
-
-    #[Test]
-    public function it_remembers_every_id_it_replaced(): void
-    {
-        $session = $this->session();
-
-        $session->regenerate();
-        $session->regenerate();
-
-        self::assertSame('sessionid-0000000000000000000002', $session->id->value);
-        self::assertSame([self::ID, 'sessionid-0000000000000000000001'], [
-            $session->replacedIds[0]->value,
-            $session->replacedIds[1]->value,
-        ]);
-    }
-
-    #[Test]
-    public function it_invalidates_by_clearing_its_values_and_regenerating_its_id(): void
-    {
-        $session = $this->session(['user' => 42]);
-        $original = $session->id;
-
-        $session->invalidate();
-
-        self::assertSame([], $session->values);
-        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
-        self::assertSame([$original], $session->replacedIds);
-    }
-
-    #[Test]
-    public function it_forgets_the_ids_it_replaced_and_keeps_its_current_id(): void
-    {
-        $session = $this->session();
-        $session->regenerate();
-
-        $session->forgetReplacedIds();
-
-        self::assertSame([], $session->replacedIds);
-        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
     }
 
     /**
-     * @param array<string, mixed> $values
+     * @param array<array-key, mixed> $values
      */
-    private function session(array $values = []): Session
+    private function session(array $values): Session
     {
-        return new Session(new SessionId(self::ID), new SequentialSessionIdGenerator(), $values);
+        return new Session(new SessionState(new SessionId(self::ID), storedId: null, values: $values));
     }
 }

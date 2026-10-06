@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session;
 
+use WeakMap;
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use Dirthara\Session\ValueObject\Lifetime;
@@ -13,7 +14,6 @@ use Dirthara\Session\ValueObject\StoredSession;
 use Dirthara\Session\Contract\SessionSerialiser;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Exception\ForeignSessionException;
-use Dirthara\Session\Contract\Session as SessionContract;
 use Dirthara\Session\Exception\SessionSerialisationException;
 use Dirthara\Session\Contract\SessionManager as SessionManagerContract;
 
@@ -21,20 +21,27 @@ use function sprintf;
 
 final readonly class SessionManager implements SessionManagerContract
 {
+    /**
+     * @var WeakMap<Session, SessionState>
+     */
+    private WeakMap $states;
+
     public function __construct(
         private SessionStore $store,
         private SessionIdGenerator $ids,
         private SessionSerialiser $serialiser,
         private ClockInterface $clock,
         private Lifetime $lifetime,
-    ) {}
-
-    public function create(): SessionContract
-    {
-        return new Session($this->ids->generate(), $this->ids);
+    ) {
+        $this->states = new WeakMap();
     }
 
-    public function load(SessionId $id): ?SessionContract
+    public function create(): Session
+    {
+        return $this->track(new SessionState($this->ids->generate(), storedId: null));
+    }
+
+    public function load(SessionId $id): ?Session
     {
         $stored = $this->store->read($id);
 
@@ -54,28 +61,59 @@ final readonly class SessionManager implements SessionManagerContract
             return null;
         }
 
-        return new Session($id, $this->ids, $values);
+        return $this->track(new SessionState($id, storedId: $id, values: $values));
     }
 
     /**
      * @throws ForeignSessionException
      * @throws SessionSerialisationException
      */
-    public function save(SessionContract $session): void
+    public function save(Session $session): void
     {
-        if (!$session instanceof Session) {
-            throw ForeignSessionException::cannotBeSaved($session::class);
+        $state = $this->state($session, 'save');
+        $payload = $this->serialiser->serialise($state->values);
+
+        $this->store->write($state->id, new StoredSession($payload, $this->expiry()));
+
+        if ($state->storedId !== null && $state->storedId->value !== $state->id->value) {
+            $this->store->delete($state->storedId);
         }
 
-        $payload = $this->serialiser->serialise($session->values);
+        $state->storedId = $state->id;
+    }
 
-        $this->store->write($session->id, new StoredSession($payload, $this->expiry()));
+    /**
+     * @throws ForeignSessionException
+     */
+    public function regenerate(Session $session): void
+    {
+        $this->state($session, 'regenerate')->id = $this->ids->generate();
+    }
 
-        foreach ($session->replacedIds as $replacedId) {
-            $this->store->delete($replacedId);
-        }
+    /**
+     * @throws ForeignSessionException
+     */
+    public function invalidate(Session $session): void
+    {
+        $state = $this->state($session, 'invalidate');
+        $state->values = [];
+        $state->id = $this->ids->generate();
+    }
 
-        $session->forgetReplacedIds();
+    private function track(SessionState $state): Session
+    {
+        $session = new Session($state);
+        $this->states[$session] = $state;
+
+        return $session;
+    }
+
+    /**
+     * @throws ForeignSessionException
+     */
+    private function state(Session $session, string $operation): SessionState
+    {
+        return $this->states[$session] ?? throw ForeignSessionException::unknown($operation);
     }
 
     private function expiry(): DateTimeImmutable
