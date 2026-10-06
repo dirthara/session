@@ -63,6 +63,13 @@ final class RecordingSessionStore implements SessionStore
         return $this->inner->delete($id);
     }
 
+    public function prune(DateTimeImmutable $now): int
+    {
+        $this->calls[] = 'prune ' . $now->format('Y-m-d H:i:s.v');
+
+        return $this->inner->prune($now);
+    }
+
     private function record(string $operation, SessionId $id): void
     {
         $this->calls[] = $operation . ' ' . $id->value;

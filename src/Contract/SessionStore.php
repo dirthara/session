@@ -19,4 +19,6 @@ interface SessionStore
     public function touch(SessionId $id, DateTimeImmutable $expiresAt): bool;
 
     public function delete(SessionId $id): bool;
+
+    public function prune(DateTimeImmutable $now): int;
 }

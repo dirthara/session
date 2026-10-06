@@ -18,6 +18,7 @@ objects and `StoredSession` objects, each holding the session's string `payload`
 | `replace(SessionId $id, StoredSession $session): bool` | Stores a session under the ID only when there already is one, and returns whether there was. |
 | `touch(SessionId $id, DateTimeImmutable $expiresAt): bool` | Changes only the expiry of the session under the ID when there is one, keeps its payload, and returns whether there was one. |
 | `delete(SessionId $id): bool` | Removes the session under the ID, and returns whether there was one. |
+| `prune(DateTimeImmutable $now): int` | Removes every session whose `expiresAt` is at or before `$now`, and returns how many it removed. |
 
 `replace()`, `touch()`, and `delete()` have to check and change in one step, because the manager relies on their answer when
 requests run at the same time. A database store, for example, runs one `UPDATE` or `DELETE` and returns whether it
@@ -28,9 +29,10 @@ A store reports a failure by throwing. A driver package lets its exceptions impl
 `Dirthara\Session\Exception\SessionException` as well as its own package's interface, so that a caller can catch
 every session failure with one type.
 
-A store does not have to remove expired sessions: the manager never returns one, whatever the store hands back. A store
-for a backend that can expire keys itself can pass `expiresAt` on, and any other store can remove sessions whose
-`expiresAt` has passed whenever it likes, so that sessions nobody loads again do not take up space.
+A store never has to check expiry when it reads: the manager never returns an expired session, whatever the store hands
+back. Expired sessions are removed by `prune()`, which the application calls on a schedule; see
+[pruning](sessions.md#pruning). A store for a backend that expires keys itself, such as Redis, can pass `expiresAt` on
+when it writes and touches, and return `0` from `prune()`.
 
 ## The memory store
 
@@ -38,8 +40,8 @@ for a backend that can expire keys itself can pass `expiresAt` on, and any other
 process:
 
 - Its sessions are lost when the process ends, and other processes cannot see them.
-- It never removes expired sessions. They stay in memory until something loads or deletes them, so a long-running
-  process that creates many sessions keeps growing.
+- Expired sessions stay in memory until `prune()` removes them, so a long-running process has to prune regularly or
+  keep growing.
 - It never fails.
 
 ## Drivers
@@ -103,8 +105,8 @@ A `SessionConfiguration` names a driver, sets the session lifetime, and carries 
 
 ```php
 $configuration = new SessionConfiguration('database', new Lifetime(Duration::hours(2)), [
+    'connection' => 'default',
     'table' => 'sessions',
-    'prune' => true,
 ]);
 ```
 
@@ -148,8 +150,8 @@ final readonly class DatabaseSessionDriver implements SessionDriver
     public function create(SessionConfiguration $configuration): SessionStore
     {
         return new DatabaseSessionStore(
+            connection: $configuration->string('connection', 'default'),
             table: $configuration->string('table', 'sessions'),
-            prune: $configuration->bool('prune', true),
         );
     }
 }

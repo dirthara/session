@@ -16,6 +16,7 @@ A `SessionManager` works with the sessions in one store:
 | `save(Session $session): bool` | Stores the session's values under its ID, starts its lifetime again, and returns whether the session is stored. |
 | `regenerate(Session $session): void` | Gives the session a new ID. See [regenerating the ID](#regenerating-the-id). |
 | `invalidate(Session $session): void` | Removes the session's values and gives it a new ID. See [invalidating](#invalidating). |
+| `prune(): int` | Deletes every session that has expired, and returns how many. See [pruning](#pruning). |
 
 Changes to a session stay in the object until it is saved. A session that is not saved is not stored, and a change that
 is not saved is lost, so save the session at the end of every request that uses it.
@@ -67,16 +68,27 @@ $sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Dur
 ```
 
 A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime. `load()`
-treats a session as expired from the moment its lifetime ends, deletes it from the store, and returns `null`.
+treats a session as expired from the moment its lifetime ends, and returns `null` for it.
 
 A `Lifetime` is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
 throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum.
 
-:::caution
-The manager only removes an expired session when something tries to load it. A session that is never loaded again
-stays in the store until the store removes it. Whether and when a store removes expired sessions is up to the store;
-the memory store never does.
-:::
+## Pruning
+
+An expired session stays in the store until it is pruned. `load()` only reads, so it never deletes one, and most
+expired sessions are never loaded again anyway. The manager's `prune()` asks the store to delete every session that has
+expired by now, and returns how many it deleted:
+
+```php
+$pruned = $sessions->prune();
+```
+
+Call it regularly from a scheduled job, rather than during requests. How often depends on how many sessions the
+application creates; every few minutes to once an hour suits most. A store for a backend that expires keys itself can
+have nothing to do.
+
+Because only `prune()` deletes expired sessions, servers whose clocks differ slightly never delete a session that
+another server still considers live because one of them happened to load it.
 
 ## Regenerating the ID
 

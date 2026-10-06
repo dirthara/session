@@ -18,4 +18,6 @@ interface SessionManager
     public function regenerate(Session $session): void;
 
     public function invalidate(Session $session): void;
+
+    public function prune(): int;
 }

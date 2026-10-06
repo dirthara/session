@@ -233,21 +233,32 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_deletes_a_session_that_has_expired_instead_of_loading_it(): void
+    public function it_loads_nothing_for_an_expired_session_and_leaves_it_to_be_pruned(): void
     {
         $this->manager->save($this->filled());
         $this->clock->advance('+2 hours');
 
         self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
-        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
         self::assertSame(
-            [
-                'write sessionid-0000000000000000000001',
-                'read sessionid-0000000000000000000001',
-                'delete sessionid-0000000000000000000001',
-            ],
+            ['write sessionid-0000000000000000000001', 'read sessionid-0000000000000000000001'],
             $this->store->calls,
         );
+    }
+
+    #[Test]
+    public function it_prunes_the_sessions_that_have_expired_by_now(): void
+    {
+        $expiring = $this->filled();
+        $this->manager->save($expiring);
+        $this->clock->advance('+1 hour');
+        $this->manager->save($this->filled());
+        $this->clock->advance('+1 hour');
+
+        self::assertSame(1, $this->manager->prune());
+        self::assertSame('prune 2026-10-05 14:00:00.250', $this->store->calls[2]);
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNotNull($this->manager->load(new SessionId('sessionid-0000000000000000000002')));
     }
 
     #[Test]

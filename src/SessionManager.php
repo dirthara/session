@@ -50,8 +50,6 @@ final readonly class SessionManager implements SessionManagerContract
         }
 
         if ($stored->expiresAt <= $this->clock->now()) {
-            $this->store->delete($id);
-
             return null;
         }
 
@@ -115,6 +113,14 @@ final readonly class SessionManager implements SessionManagerContract
         $state = $this->state($session, 'invalidate');
         $state->values = [];
         $state->id = $this->ids->generate();
+    }
+
+    /**
+     * @throws SessionSerialisationException
+     */
+    public function prune(): int
+    {
+        return $this->store->prune($this->clock->now());
     }
 
     /**

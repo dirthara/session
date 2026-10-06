@@ -60,4 +60,20 @@ final class MemorySessionStore implements SessionStore
 
         return true;
     }
+
+    public function prune(DateTimeImmutable $now): int
+    {
+        $pruned = 0;
+
+        foreach ($this->sessions as $id => $session) {
+            if ($session->expiresAt > $now) {
+                continue;
+            }
+
+            unset($this->sessions[$id]);
+            $pruned++;
+        }
+
+        return $pruned;
+    }
 }

@@ -22,6 +22,8 @@ final class MemorySessionStoreTest extends TestCase
 
     private const string SECOND_ID = '22222222222222222222222222222222';
 
+    private const string THIRD_ID = '33333333333333333333333333333333';
+
     #[Test]
     public function it_has_nothing_under_an_id_that_was_never_written(): void
     {
@@ -136,6 +138,31 @@ final class MemorySessionStoreTest extends TestCase
 
         self::assertFalse($store->delete(new SessionId(self::FIRST_ID)));
         self::assertFalse($store->delete(new SessionId(self::SECOND_ID)));
+    }
+
+    #[Test]
+    public function it_prunes_the_sessions_that_expire_by_the_given_moment_and_counts_them(): void
+    {
+        $store = new MemorySessionStore();
+        $store->write(
+            new SessionId(self::FIRST_ID),
+            new StoredSession('a', new DateTimeImmutable('2026-10-05 12:00:00')),
+        );
+        $store->write(
+            new SessionId(self::SECOND_ID),
+            new StoredSession('b', new DateTimeImmutable('2026-10-05 13:00:00')),
+        );
+        $store->write(
+            new SessionId(self::THIRD_ID),
+            new StoredSession('c', new DateTimeImmutable('2026-10-05 12:00:00.001')),
+        );
+
+        self::assertSame(1, $store->prune(new DateTimeImmutable('2026-10-05 12:00:00')));
+        self::assertNull($store->read(new SessionId(self::FIRST_ID)));
+        self::assertNotNull($store->read(new SessionId(self::SECOND_ID)));
+        self::assertNotNull($store->read(new SessionId(self::THIRD_ID)));
+        self::assertSame(2, $store->prune(new DateTimeImmutable('2026-10-05 13:00:00')));
+        self::assertSame(0, $store->prune(new DateTimeImmutable('2026-10-05 13:00:00')));
     }
 
     private function stored(string $payload): StoredSession
