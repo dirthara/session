@@ -67,8 +67,8 @@ final readonly class SessionManager implements SessionManagerContract
                 $id,
                 storedId: $id,
                 values: $values,
-                createdAt: $stored->createdAt,
-                expiresAt: $stored->expiresAt,
+                createdAt: $this->utc($stored->createdAt),
+                expiresAt: $this->utc($stored->expiresAt),
             ),
         );
     }
@@ -216,7 +216,12 @@ final readonly class SessionManager implements SessionManagerContract
 
     private function now(): DateTimeImmutable
     {
-        return $this->clock->now()->setTimezone(new DateTimeZone('UTC'));
+        return $this->utc($this->clock->now());
+    }
+
+    private function utc(DateTimeImmutable $moment): DateTimeImmutable
+    {
+        return $moment->setTimezone(new DateTimeZone('UTC'));
     }
 
     private function later(DateTimeImmutable $moment, Duration $duration): DateTimeImmutable

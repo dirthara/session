@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Dirthara\Session\Tests;
 
 use stdClass;
+use DateTimeZone;
 use DateTimeImmutable;
 use Dirthara\Session\Session;
 use PHPUnit\Framework\TestCase;
@@ -491,6 +492,83 @@ final class SessionManagerTest extends TestCase
         $manager->prune();
 
         self::assertSame('prune 2026-10-05 12:30:00.250 UTC', $this->store->calls[2]);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, Lifetime, string}>
+     */
+    public static function daylightSavingChanges(): iterable
+    {
+        yield 'the spring change, when the clocks skip an hour' => [
+            '2026-03-29 01:30:00',
+            '2026-03-29 01:00:00 UTC',
+            new Lifetime(Duration::hours(48), Duration::hours(24)),
+            '2026-03-30 00:30:00.000 UTC',
+        ];
+        yield 'the autumn change, when the clocks repeat an hour' => [
+            '2026-10-25 01:30:00',
+            '2026-10-25 00:00:00 UTC',
+            new Lifetime(Duration::hours(24), Duration::hours(2)),
+            '2026-10-25 01:30:00.000 UTC',
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('daylightSavingChanges')]
+    public function it_measures_the_absolute_lifetime_in_elapsed_time_from_a_moment_a_store_returns_in_local_time(
+        string $createdAt,
+        string $now,
+        Lifetime $lifetime,
+        string $expected,
+    ): void {
+        $amsterdam = new DateTimeZone('Europe/Amsterdam');
+        $id = new SessionId('sessionid-0000000000000000000009');
+        $this->store->inner->write(
+            $id,
+            new StoredSession(
+                'a:1:{s:4:"user";i:42;}',
+                new DateTimeImmutable($createdAt, $amsterdam),
+                new DateTimeImmutable('2026-12-31 00:00:00', $amsterdam),
+            ),
+        );
+        $clock = new TestClock($now);
+        $manager = new SessionManager(
+            $this->store,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $clock,
+            $lifetime,
+        );
+        $session = $manager->load($id);
+        self::assertNotNull($session);
+        $session->put('locale', 'en_GB');
+
+        self::assertTrue($manager->save($session));
+
+        $stored = $this->store->inner->read($id);
+        self::assertNotNull($stored);
+        self::assertSame($expected, $stored->expiresAt->format('Y-m-d H:i:s.v e'));
+        self::assertSame('UTC', $stored->createdAt->format('e'));
+    }
+
+    #[Test]
+    public function it_compares_a_loaded_expiry_in_local_time_with_the_clock_as_an_instant(): void
+    {
+        $amsterdam = new DateTimeZone('Europe/Amsterdam');
+        $id = new SessionId('sessionid-0000000000000000000009');
+        $this->store->inner->write(
+            $id,
+            new StoredSession(
+                'a:1:{s:4:"user";i:42;}',
+                new DateTimeImmutable('2026-10-05 13:00:00', $amsterdam),
+                new DateTimeImmutable('2026-10-05 14:00:00.300', $amsterdam),
+            ),
+        );
+        $session = $this->manager->load($id);
+        self::assertNotNull($session);
+        $this->clock->advance('+50 milliseconds');
+
+        self::assertFalse($this->manager->save($session));
     }
 
     #[Test]

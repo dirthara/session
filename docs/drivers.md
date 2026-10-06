@@ -17,6 +17,10 @@ returns. A store keeps them as UTC, or as a Unix timestamp, so that it compares 
 store that writes them as local times without a zone, such as into a `DATETIME` column, can prune sessions hours early
 or late once servers or the database run in another time zone.
 
+A store may hand moments back in any time zone, as long as each is the same instant it was given. The manager converts
+them to UTC before it calculates with them, so adding a lifetime to a moment a store returned in a zone with daylight
+saving time still adds elapsed time rather than moving the wall clock.
+
 | Method | Does |
 | --- | --- |
 | `read(SessionId $id): ?StoredSession` | Returns the session under the ID, or `null` when there is none. |

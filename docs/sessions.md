@@ -96,6 +96,9 @@ session alive, and it makes visitors with long-lived sessions log in again now a
 application people log in to for a working day.
 :::
 
+A lifetime is elapsed time. The manager calculates every expiry in UTC, so a session that lives for 24 hours lives for
+24 hours across a daylight saving change too, whatever time zone the clock or the store uses.
+
 Each lifetime is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
 throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum. An absolute lifetime
 shorter than the idle lifetime is allowed, and then the idle lifetime never ends a session.
