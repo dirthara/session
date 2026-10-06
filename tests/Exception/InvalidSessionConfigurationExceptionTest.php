@@ -52,25 +52,6 @@ final class InvalidSessionConfigurationExceptionTest extends TestCase
     }
 
     #[Test]
-    public function it_describes_an_invalid_lifetime(): void
-    {
-        $exception = InvalidSessionConfigurationException::invalidLifetime(
-            "class@anonymous\0/app/src/Store.php:3$0",
-            0,
-            34_560_000_000,
-        );
-
-        self::assertSame(
-            'Unable to configure the "class@anonymous\\000/app/src/Store.php:3$0" session: the lifetime has to be between 1 and 34560000000 milliseconds, 0 given.',
-            $exception->getMessage(),
-        );
-        self::assertSame(
-            ['driver' => 'class@anonymous\\000/app/src/Store.php:3$0', 'lifetime' => 0, 'maximum' => 34_560_000_000],
-            $exception->context,
-        );
-    }
-
-    #[Test]
     public function it_describes_a_missing_option(): void
     {
         $exception = InvalidSessionConfigurationException::missingOption(

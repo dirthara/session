@@ -8,6 +8,7 @@ use stdClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,10 +19,9 @@ use Dirthara\Session\Exception\InvalidSessionConfigurationException;
 
 use function print_r;
 
-use const PHP_INT_MAX;
-
 #[CoversClass(SessionConfiguration::class)]
 #[UsesClass(Duration::class)]
+#[UsesClass(Lifetime::class)]
 #[UsesClass(InvalidSessionConfigurationException::class)]
 #[UsesTrait(HasExceptionContext::class)]
 final class SessionConfigurationTest extends TestCase
@@ -29,62 +29,21 @@ final class SessionConfigurationTest extends TestCase
     #[Test]
     public function it_carries_the_driver_name(): void
     {
-        self::assertSame('memory', new SessionConfiguration('memory', Duration::hours(2))->driver);
+        self::assertSame('memory', new SessionConfiguration('memory', new Lifetime(Duration::hours(2)))->driver);
     }
 
     #[Test]
     public function it_carries_the_lifetime(): void
     {
-        $lifetime = Duration::minutes(30);
+        $lifetime = new Lifetime(Duration::minutes(30));
 
         self::assertSame($lifetime, new SessionConfiguration('memory', $lifetime)->lifetime);
     }
 
     #[Test]
-    public function it_accepts_the_shortest_and_the_longest_lifetime(): void
-    {
-        $shortest = new SessionConfiguration('memory', Duration::milliseconds(1));
-        $longest = new SessionConfiguration('memory', Duration::hours(400 * 24));
-
-        self::assertSame(1, $shortest->lifetime->milliseconds);
-        self::assertSame(SessionConfiguration::MAXIMUM_LIFETIME_MILLISECONDS, $longest->lifetime->milliseconds);
-    }
-
-    /**
-     * @return iterable<string, array{Duration}>
-     */
-    public static function invalidLifetimes(): iterable
-    {
-        yield 'zero' => [Duration::milliseconds(0)];
-        yield 'a millisecond over 400 days' => [
-            Duration::milliseconds(SessionConfiguration::MAXIMUM_LIFETIME_MILLISECONDS + 1),
-        ];
-        yield 'the longest duration' => [Duration::milliseconds(PHP_INT_MAX)];
-    }
-
-    #[Test]
-    #[DataProvider('invalidLifetimes')]
-    public function it_refuses_a_lifetime_that_is_zero_or_longer_than_400_days(Duration $lifetime): void
-    {
-        try {
-            new SessionConfiguration('memory', $lifetime);
-            self::fail('An invalid lifetime was accepted.');
-        } catch (InvalidSessionConfigurationException $exception) {
-            self::assertSame(
-                [
-                    'driver' => 'memory',
-                    'lifetime' => $lifetime->milliseconds,
-                    'maximum' => SessionConfiguration::MAXIMUM_LIFETIME_MILLISECONDS,
-                ],
-                $exception->context,
-            );
-        }
-    }
-
-    #[Test]
     public function it_knows_which_options_it_has(): void
     {
-        $configuration = new SessionConfiguration('redis', Duration::hours(2), [
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), [
             'host' => 'localhost',
             'password' => null,
         ]);
@@ -97,7 +56,7 @@ final class SessionConfigurationTest extends TestCase
     #[Test]
     public function it_reads_options_of_each_type(): void
     {
-        $configuration = new SessionConfiguration('redis', Duration::hours(2), [
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), [
             'host' => 'localhost',
             'port' => 6379,
             'tls' => false,
@@ -111,7 +70,7 @@ final class SessionConfigurationTest extends TestCase
     #[Test]
     public function it_prefers_a_configured_option_over_the_default(): void
     {
-        $configuration = new SessionConfiguration('redis', Duration::hours(2), [
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), [
             'host' => 'redis.internal',
             'port' => 6380,
             'tls' => true,
@@ -125,7 +84,7 @@ final class SessionConfigurationTest extends TestCase
     #[Test]
     public function it_falls_back_to_the_default_for_a_missing_option(): void
     {
-        $configuration = new SessionConfiguration('redis', Duration::hours(2));
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)));
 
         self::assertSame('localhost', $configuration->string('host', 'localhost'));
         self::assertSame(6379, $configuration->int('port', 6379));
@@ -135,7 +94,7 @@ final class SessionConfigurationTest extends TestCase
     #[Test]
     public function it_returns_falsy_values_instead_of_the_default(): void
     {
-        $configuration = new SessionConfiguration('redis', Duration::hours(2), [
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), [
             'prefix' => '',
             'database' => 0,
             'tls' => false,
@@ -166,7 +125,7 @@ final class SessionConfigurationTest extends TestCase
     public function it_refuses_a_missing_option_without_a_default(callable $read): void
     {
         try {
-            $read(new SessionConfiguration('redis', Duration::hours(2)));
+            $read(new SessionConfiguration('redis', new Lifetime(Duration::hours(2))));
             self::fail('A missing option without a default was accepted.');
         } catch (InvalidSessionConfigurationException $exception) {
             self::assertSame(['driver' => 'redis', 'option' => 'option'], $exception->context);
@@ -204,7 +163,7 @@ final class SessionConfigurationTest extends TestCase
         string $actual,
     ): void {
         try {
-            $read(new SessionConfiguration('redis', Duration::hours(2), ['option' => $value]));
+            $read(new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), ['option' => $value]));
             self::fail('An option of the wrong type was accepted.');
         } catch (InvalidSessionConfigurationException $exception) {
             self::assertSame(
@@ -218,7 +177,9 @@ final class SessionConfigurationTest extends TestCase
     public function it_keeps_a_mistyped_value_out_of_the_exception(): void
     {
         try {
-            new SessionConfiguration('redis', Duration::hours(2), ['password' => ['s3cr3t']])->string('password');
+            new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), ['password' => [
+                's3cr3t',
+            ]])->string('password');
             self::fail('An option of the wrong type was accepted.');
         } catch (InvalidSessionConfigurationException $exception) {
             self::assertStringNotContainsString('s3cr3t', $exception->getMessage());

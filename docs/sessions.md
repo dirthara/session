@@ -50,18 +50,18 @@ the store documents more.
 
 ## Expiry
 
-Every save stores the session until its lifetime has passed, measured from the moment of saving. The lifetime comes
-from the configuration:
+Every save stores the session until its idle lifetime has passed, measured from the moment of saving. The lifetime
+comes from the configuration:
 
 ```php
-$sessions = $factory->create(new SessionConfiguration('memory', Duration::minutes(30)));
+$sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));
 ```
 
-A session that is saved on every request therefore lives until it has not been used for the whole lifetime. `load()`
+A session that is saved on every request therefore lives until it has not been used for the whole idle lifetime. `load()`
 treats a session as expired from the moment its lifetime ends, deletes it from the store, and returns `null`.
 
-A lifetime is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other lifetime
-throws an `InvalidSessionConfigurationException`.
+A `Lifetime` is longer than zero and at most 400 days, which is as long as browsers keep a cookie. Any other duration
+throws an `InvalidSessionLifetimeException`; `Lifetime::MAXIMUM_MILLISECONDS` holds the maximum.
 
 :::caution
 The manager only removes an expired session when something tries to load it. A session that is never loaded again

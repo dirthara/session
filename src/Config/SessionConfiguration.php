@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Config;
 
-use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\Exception\InvalidSessionConfigurationException;
 
 use function is_int;
@@ -14,27 +14,14 @@ use function array_key_exists;
 
 final readonly class SessionConfiguration
 {
-    // Browsers cap the lifetime of a cookie at 400 days (RFC 6265bis), so a session cannot usefully outlive one.
-    public const int MAXIMUM_LIFETIME_MILLISECONDS = 400 * 86_400_000;
-
     /**
      * @param array<string, mixed> $options
-     *
-     * @throws InvalidSessionConfigurationException
      */
     public function __construct(
         public string $driver,
-        public Duration $lifetime,
+        public Lifetime $lifetime,
         private array $options = [],
-    ) {
-        if ($lifetime->milliseconds === 0 || $lifetime->milliseconds > self::MAXIMUM_LIFETIME_MILLISECONDS) {
-            throw InvalidSessionConfigurationException::invalidLifetime(
-                $driver,
-                $lifetime->milliseconds,
-                self::MAXIMUM_LIFETIME_MILLISECONDS,
-            );
-        }
-    }
+    ) {}
 
     /**
      * @throws InvalidSessionConfigurationException

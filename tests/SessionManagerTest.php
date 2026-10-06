@@ -9,13 +9,13 @@ use PHPUnit\Framework\TestCase;
 use Dirthara\Session\SessionManager;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\Attributes\UsesTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Dirthara\Session\Tests\Fixtures\TestClock;
 use Dirthara\Session\ValueObject\StoredSession;
-use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Exception\HasExceptionContext;
 use Dirthara\Session\Tests\Fixtures\ForeignSession;
 use Dirthara\Session\Driver\Memory\MemorySessionStore;
@@ -27,10 +27,10 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[CoversClass(SessionManager::class)]
 #[UsesClass(Session::class)]
 #[UsesClass(Duration::class)]
+#[UsesClass(Lifetime::class)]
 #[UsesClass(SessionId::class)]
 #[UsesClass(StoredSession::class)]
 #[UsesClass(MemorySessionStore::class)]
-#[UsesClass(SessionConfiguration::class)]
 #[UsesClass(ForeignSessionException::class)]
 #[UsesTrait(HasExceptionContext::class)]
 final class SessionManagerTest extends TestCase
@@ -49,7 +49,7 @@ final class SessionManagerTest extends TestCase
             $this->store,
             new SequentialSessionIdGenerator(),
             $this->clock,
-            new SessionConfiguration('memory', Duration::hours(2)),
+            new Lifetime(Duration::hours(2)),
         );
     }
 
@@ -111,7 +111,7 @@ final class SessionManagerTest extends TestCase
             $this->store,
             new SequentialSessionIdGenerator(),
             $this->clock,
-            new SessionConfiguration('memory', Duration::milliseconds(1500)),
+            new Lifetime(Duration::milliseconds(1500)),
         );
 
         $manager->save($manager->create());
@@ -128,7 +128,7 @@ final class SessionManagerTest extends TestCase
             $this->store,
             new SequentialSessionIdGenerator(),
             $this->clock,
-            new SessionConfiguration('memory', Duration::hours(400 * 24)),
+            new Lifetime(Duration::hours(400 * 24)),
         );
 
         $manager->save($manager->create());

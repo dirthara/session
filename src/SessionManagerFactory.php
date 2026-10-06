@@ -23,6 +23,6 @@ final readonly class SessionManagerFactory implements SessionManagerFactoryContr
     {
         $store = $this->drivers->driver($configuration->driver)->create($configuration);
 
-        return new SessionManager($store, $this->ids, $this->clock, $configuration);
+        return new SessionManager($store, $this->ids, $this->clock, $configuration->lifetime);
     }
 }

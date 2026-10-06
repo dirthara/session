@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Dirthara\Session\SessionManager;
 use PHPUnit\Framework\Attributes\Test;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\SessionId;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -28,6 +29,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[CoversClass(SessionManagerFactory::class)]
 #[UsesClass(Session::class)]
 #[UsesClass(Duration::class)]
+#[UsesClass(Lifetime::class)]
 #[UsesClass(SessionId::class)]
 #[UsesClass(StoredSession::class)]
 #[UsesClass(SessionManager::class)]
@@ -45,7 +47,9 @@ final class SessionManagerFactoryTest extends TestCase
         $drivers = new SessionDriverRegistry();
         $drivers->register('memory', new MemorySessionDriver());
 
-        $manager = $this->factory($drivers)->create(new SessionConfiguration('memory', Duration::hours(2)));
+        $manager = $this->factory($drivers)->create(
+            new SessionConfiguration('memory', new Lifetime(Duration::hours(2))),
+        );
         $session = $manager->create();
         $session->put('user', 42);
         $manager->save($session);
@@ -62,7 +66,7 @@ final class SessionManagerFactoryTest extends TestCase
         $redis = new RecordingSessionDriver();
         $drivers->register('memory', $memory);
         $drivers->register('redis', $redis);
-        $configuration = new SessionConfiguration('redis', Duration::hours(2), ['host' => 'localhost']);
+        $configuration = new SessionConfiguration('redis', new Lifetime(Duration::hours(2)), ['host' => 'localhost']);
 
         $this->factory($drivers)->create($configuration);
 
@@ -77,7 +81,7 @@ final class SessionManagerFactoryTest extends TestCase
         $drivers->register('memory', new MemorySessionDriver());
         $clock = new TestClock();
         $factory = new SessionManagerFactory($drivers, new SequentialSessionIdGenerator(), $clock);
-        $manager = $factory->create(new SessionConfiguration('memory', Duration::minutes(30)));
+        $manager = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::minutes(30))));
         $session = $manager->create();
         $manager->save($session);
 
@@ -92,7 +96,7 @@ final class SessionManagerFactoryTest extends TestCase
         $drivers = new SessionDriverRegistry();
         $drivers->register('memory', new MemorySessionDriver());
         $factory = $this->factory($drivers);
-        $configuration = new SessionConfiguration('memory', Duration::hours(2));
+        $configuration = new SessionConfiguration('memory', new Lifetime(Duration::hours(2)));
 
         $first = $factory->create($configuration);
         $second = $factory->create($configuration);
@@ -108,7 +112,9 @@ final class SessionManagerFactoryTest extends TestCase
     {
         $this->expectExceptionObject(SessionDriverNotFoundException::for('redis'));
 
-        $this->factory(new SessionDriverRegistry())->create(new SessionConfiguration('redis', Duration::hours(2)));
+        $this->factory(new SessionDriverRegistry())->create(
+            new SessionConfiguration('redis', new Lifetime(Duration::hours(2))),
+        );
     }
 
     private function factory(SessionDriverRegistry $drivers): SessionManagerFactory

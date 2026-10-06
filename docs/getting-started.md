@@ -63,10 +63,11 @@ expire.
 use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 
 $factory = new SessionManagerFactory($drivers, $ids, new SystemClock());
 
-$sessions = $factory->create(new SessionConfiguration('memory', Duration::hours(2)));
+$sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 ```
 
 The configuration names the driver, sets how long a session lives after it was last saved, and carries the driver's

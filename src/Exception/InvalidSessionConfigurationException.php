@@ -24,19 +24,6 @@ final class InvalidSessionConfigurationException extends InvalidArgumentExceptio
         $this->context = $context;
     }
 
-    public static function invalidLifetime(string $driver, int $milliseconds, int $maximum): self
-    {
-        return new self(
-            message: sprintf(
-                'Unable to configure the "%s" session: the lifetime has to be between 1 and %d milliseconds, %d given.',
-                self::printable($driver),
-                $maximum,
-                $milliseconds,
-            ),
-            context: ['driver' => self::printable($driver), 'lifetime' => $milliseconds, 'maximum' => $maximum],
-        );
-    }
-
     public static function missingOption(string $driver, string $key): self
     {
         return new self(

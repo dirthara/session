@@ -31,12 +31,13 @@ use Dirthara\Session\Driver\SessionDriverRegistry;
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
 use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 
 $drivers = new SessionDriverRegistry();
 $drivers->register('memory', new MemorySessionDriver());
 
 $factory = new SessionManagerFactory($drivers, new RandomSessionIdGenerator(), $clock);
-$sessions = $factory->create(new SessionConfiguration('memory', Duration::hours(2)));
+$sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 
 $session = $sessions->create();
 $session->put('user', 42);

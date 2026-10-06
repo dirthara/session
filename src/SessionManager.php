@@ -6,10 +6,10 @@ namespace Dirthara\Session;
 
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
+use Dirthara\Session\ValueObject\Lifetime;
 use Dirthara\Session\Contract\SessionStore;
 use Dirthara\Session\ValueObject\SessionId;
 use Dirthara\Session\ValueObject\StoredSession;
-use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Contract\SessionIdGenerator;
 use Dirthara\Session\Exception\ForeignSessionException;
 use Dirthara\Session\Contract\Session as SessionContract;
@@ -23,7 +23,7 @@ final readonly class SessionManager implements SessionManagerContract
         private SessionStore $store,
         private SessionIdGenerator $ids,
         private ClockInterface $clock,
-        private SessionConfiguration $configuration,
+        private Lifetime $lifetime,
     ) {}
 
     public function create(): SessionContract
@@ -68,7 +68,7 @@ final readonly class SessionManager implements SessionManagerContract
 
     private function expiry(): DateTimeImmutable
     {
-        $milliseconds = $this->configuration->lifetime->milliseconds;
+        $milliseconds = $this->lifetime->idle->milliseconds;
 
         return $this->clock->now()->modify(sprintf('+%d milliseconds', $milliseconds));
     }

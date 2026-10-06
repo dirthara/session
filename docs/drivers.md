@@ -70,10 +70,11 @@ use Dirthara\Session\Config\SessionConfiguration;
 use Dirthara\Session\Generator\RandomSessionIdGenerator;
 use Dirthara\Session\SessionManagerFactory;
 use Dirthara\Session\ValueObject\Duration;
+use Dirthara\Session\ValueObject\Lifetime;
 
 $factory = new SessionManagerFactory($drivers, new RandomSessionIdGenerator(), $clock);
 
-$sessions = $factory->create(new SessionConfiguration('memory', Duration::hours(2)));
+$sessions = $factory->create(new SessionConfiguration('memory', new Lifetime(Duration::hours(2))));
 ```
 
 Each manager gets its own store from the driver, so whether two managers share their sessions depends on the driver:
@@ -82,15 +83,14 @@ driver that is not registered throws a `SessionDriverNotFoundException`. Code th
 the `SessionManagerFactory` contract in `Dirthara\Session\Contract`, and code that works with sessions on the
 `SessionManager` contract.
 
-A `SessionManager` can also be constructed directly, from a store, an ID generator, a clock, and the configuration whose
-lifetime it uses.
+A `SessionManager` can also be constructed directly, from a store, an ID generator, a clock, and a `Lifetime`.
 
 ## Configuration
 
 A `SessionConfiguration` names a driver, sets the session lifetime, and carries the options for the driver:
 
 ```php
-$configuration = new SessionConfiguration('database', Duration::hours(2), [
+$configuration = new SessionConfiguration('database', new Lifetime(Duration::hours(2)), [
     'table' => 'sessions',
     'prune' => true,
 ]);
@@ -99,13 +99,13 @@ $configuration = new SessionConfiguration('database', Duration::hours(2), [
 | Argument | Type | Meaning |
 | --- | --- | --- |
 | `driver` | `string` | The name the driver is registered under. |
-| `lifetime` | `Duration` | How long a session lives after it was last saved: longer than zero, and at most 400 days. |
+| `lifetime` | `Lifetime` | How long a session lives. See [expiry](sessions.md#expiry). |
 | `options` | `array<string, mixed>` | The driver's options. Defaults to none. |
 
-A `Duration` is created in milliseconds, seconds, minutes, or hours, as `Duration::minutes(30)`, and holds a whole,
-non-negative number of milliseconds. A negative amount, or one that does not fit in an integer of milliseconds, throws
-an `InvalidDurationException`. A lifetime of zero or longer than 400 days, the most browsers keep a cookie, throws an
-`InvalidSessionConfigurationException`; `SessionConfiguration::MAXIMUM_LIFETIME_MILLISECONDS` holds the maximum.
+A `Lifetime` takes its idle lifetime as a `Duration`, which is created in milliseconds, seconds, minutes, or hours, as
+`Duration::minutes(30)`, and holds a whole, non-negative number of milliseconds. A negative amount, or one that does
+not fit in an integer of milliseconds, throws an `InvalidDurationException`. A lifetime of zero or longer than 400
+days, the most browsers keep a cookie, throws an `InvalidSessionLifetimeException`.
 
 A driver reads its options with typed accessors:
 
