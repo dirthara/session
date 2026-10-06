@@ -76,11 +76,13 @@ final readonly class SessionManager implements SessionManagerContract
             return $this->forget($state);
         }
 
-        $stored = new StoredSession($this->serialiser->serialise($state->values), $this->expiry());
+        $expiresAt = $this->expiry();
 
         if ($state->storedId !== null && $state->storedId->value === $state->id->value) {
-            return $this->store->replace($state->id, $stored);
+            return $this->update($state, $expiresAt);
         }
+
+        $stored = new StoredSession($this->serialiser->serialise($state->values), $expiresAt);
 
         if ($state->storedId !== null) {
             if (!$this->store->delete($state->storedId)) {
@@ -92,6 +94,7 @@ final readonly class SessionManager implements SessionManagerContract
 
         $this->store->write($state->id, $stored);
         $state->storedId = $state->id;
+        $state->changed = false;
 
         return true;
     }
@@ -112,6 +115,25 @@ final readonly class SessionManager implements SessionManagerContract
         $state = $this->state($session, 'invalidate');
         $state->values = [];
         $state->id = $this->ids->generate();
+    }
+
+    /**
+     * @throws SessionSerialisationException
+     */
+    private function update(SessionState $state, DateTimeImmutable $expiresAt): bool
+    {
+        $updated = $state->changed
+            ? $this->store->replace(
+                $state->id,
+                new StoredSession($this->serialiser->serialise($state->values), $expiresAt),
+            )
+            : $this->store->touch($state->id, $expiresAt);
+
+        if ($updated) {
+            $state->changed = false;
+        }
+
+        return $updated;
     }
 
     private function forget(SessionState $state): bool

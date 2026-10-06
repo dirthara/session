@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Tests\Fixtures;
 
+use DateTimeImmutable;
 use Dirthara\Session\Contract\SessionStore;
 use Dirthara\Session\ValueObject\SessionId;
 use Dirthara\Session\ValueObject\StoredSession;
@@ -46,6 +47,13 @@ final class RecordingSessionStore implements SessionStore
         $this->record('replace', $id);
 
         return $this->inner->replace($id, $session);
+    }
+
+    public function touch(SessionId $id, DateTimeImmutable $expiresAt): bool
+    {
+        $this->record('touch', $id);
+
+        return $this->inner->touch($id, $expiresAt);
     }
 
     public function delete(SessionId $id): bool

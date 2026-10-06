@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Contract;
 
+use DateTimeImmutable;
 use Dirthara\Session\ValueObject\SessionId;
 use Dirthara\Session\ValueObject\StoredSession;
 
@@ -14,6 +15,8 @@ interface SessionStore
     public function write(SessionId $id, StoredSession $session): void;
 
     public function replace(SessionId $id, StoredSession $session): bool;
+
+    public function touch(SessionId $id, DateTimeImmutable $expiresAt): bool;
 
     public function delete(SessionId $id): bool;
 }

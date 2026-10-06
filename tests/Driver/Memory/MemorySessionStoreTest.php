@@ -90,6 +90,20 @@ final class MemorySessionStoreTest extends TestCase
     }
 
     #[Test]
+    public function it_touches_only_the_expiry_of_a_session_under_an_id_it_has(): void
+    {
+        $store = new MemorySessionStore();
+        $later = new DateTimeImmutable('2026-10-05 16:00:00');
+        $store->write(new SessionId(self::FIRST_ID), $this->stored('user 1'));
+
+        self::assertTrue($store->touch(new SessionId(self::FIRST_ID), $later));
+        self::assertFalse($store->touch(new SessionId(self::SECOND_ID), $later));
+        self::assertSame('user 1', $store->read(new SessionId(self::FIRST_ID))?->payload);
+        self::assertSame($later, $store->read(new SessionId(self::FIRST_ID))?->expiresAt);
+        self::assertNull($store->read(new SessionId(self::SECOND_ID)));
+    }
+
+    #[Test]
     public function it_keeps_an_expired_session_because_expiry_is_up_to_the_manager(): void
     {
         $store = new MemorySessionStore();

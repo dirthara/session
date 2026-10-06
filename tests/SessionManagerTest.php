@@ -292,6 +292,108 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
+    public function it_only_extends_the_expiry_of_a_session_whose_values_did_not_change(): void
+    {
+        $this->manager->save($this->filled());
+        $this->clock->advance('+1 hour');
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+        $loaded->get('user');
+
+        self::assertTrue($this->manager->save($loaded));
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($stored);
+        self::assertSame('a:1:{s:4:"user";i:42;}', $stored->payload);
+        self::assertSame('2026-10-05 15:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
+        self::assertSame(
+            [
+                'write sessionid-0000000000000000000001',
+                'read sessionid-0000000000000000000001',
+                'touch sessionid-0000000000000000000001',
+            ],
+            $this->store->calls,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{callable(Session): void}>
+     */
+    public static function changes(): iterable
+    {
+        yield 'a put' => [static fn(Session $session) => $session->put('locale', 'en_GB')];
+        yield 'a put of the same value' => [static fn(Session $session) => $session->put('user', 42)];
+        yield 'a removal' => [static fn(Session $session) => $session->remove('locale')];
+    }
+
+    /**
+     * @param callable(Session): void $change
+     */
+    #[Test]
+    #[DataProvider('changes')]
+    public function it_replaces_a_session_whose_values_changed(callable $change): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+
+        $change($loaded);
+
+        self::assertTrue($this->manager->save($loaded));
+        self::assertSame('replace sessionid-0000000000000000000001', $this->store->calls[2]);
+    }
+
+    #[Test]
+    public function it_touches_a_session_again_once_its_changes_are_saved(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $session->put('locale', 'en_GB');
+        $this->manager->save($session);
+
+        $this->manager->save($session);
+
+        self::assertSame(
+            [
+                'write sessionid-0000000000000000000001',
+                'replace sessionid-0000000000000000000001',
+                'touch sessionid-0000000000000000000001',
+            ],
+            $this->store->calls,
+        );
+    }
+
+    #[Test]
+    public function it_does_not_touch_a_loaded_session_that_was_deleted_from_the_store(): void
+    {
+        $this->manager->save($this->filled());
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
+        $this->store->inner->delete(new SessionId('sessionid-0000000000000000000001'));
+
+        self::assertFalse($this->manager->save($loaded));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
+    }
+
+    #[Test]
+    public function it_keeps_a_failed_change_for_the_next_save(): void
+    {
+        $session = $this->filled();
+        $this->manager->save($session);
+        $session->put('locale', 'en_GB');
+        $this->store->throwingOperations = ['replace'];
+
+        try {
+            $this->manager->save($session);
+            self::fail('A failed replace was not reported.');
+        } catch (ContextualException) {
+            $this->store->throwingOperations = [];
+        }
+
+        $this->manager->save($session);
+
+        self::assertSame('en_GB', $this->loaded('sessionid-0000000000000000000001')->get('locale'));
+    }
+
+    #[Test]
     public function it_deletes_the_stored_id_before_it_writes_the_new_one(): void
     {
         $session = $this->filled();
@@ -311,7 +413,7 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
-    public function it_replaces_the_new_id_once_a_regenerated_session_is_saved(): void
+    public function it_touches_the_new_id_once_a_regenerated_session_is_saved(): void
     {
         $session = $this->filled();
         $this->manager->save($session);
@@ -325,7 +427,7 @@ final class SessionManagerTest extends TestCase
                 'write sessionid-0000000000000000000001',
                 'delete sessionid-0000000000000000000001',
                 'write sessionid-0000000000000000000002',
-                'replace sessionid-0000000000000000000002',
+                'touch sessionid-0000000000000000000002',
             ],
             $this->store->calls,
         );

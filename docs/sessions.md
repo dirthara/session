@@ -56,7 +56,10 @@ into copies. A value the serialiser cannot handle, such as a closure, makes `sav
 
 ## Expiry
 
-Every save stores the session until its idle lifetime has passed, measured from the moment of saving. The lifetime
+Every save stores the session until its idle lifetime has passed, measured from the moment of saving. A session whose
+values did not change since it was loaded or last saved is not written again: the manager only moves its expiry, which
+is far cheaper for a store such as a database. Any `put()`, `remove()`, or `clear()` counts as a change, even one that
+puts the value that was already there. The lifetime
 comes from the configuration:
 
 ```php

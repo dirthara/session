@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Dirthara\Session\Driver\Memory;
 
+use DateTimeImmutable;
 use Dirthara\Session\Contract\SessionStore;
 use Dirthara\Session\ValueObject\SessionId;
 use Dirthara\Session\ValueObject\StoredSession;
@@ -34,6 +35,17 @@ final class MemorySessionStore implements SessionStore
         }
 
         $this->sessions[$id->value] = $session;
+
+        return true;
+    }
+
+    public function touch(SessionId $id, DateTimeImmutable $expiresAt): bool
+    {
+        if (!array_key_exists($id->value, $this->sessions)) {
+            return false;
+        }
+
+        $this->sessions[$id->value] = new StoredSession($this->sessions[$id->value]->payload, $expiresAt);
 
         return true;
     }

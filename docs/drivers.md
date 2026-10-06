@@ -16,9 +16,10 @@ objects and `StoredSession` objects, each holding the session's string `payload`
 | `read(SessionId $id): ?StoredSession` | Returns the session under the ID, or `null` when there is none. |
 | `write(SessionId $id, StoredSession $session): void` | Stores a session under the ID, replacing any session already there. |
 | `replace(SessionId $id, StoredSession $session): bool` | Stores a session under the ID only when there already is one, and returns whether there was. |
+| `touch(SessionId $id, DateTimeImmutable $expiresAt): bool` | Changes only the expiry of the session under the ID when there is one, keeps its payload, and returns whether there was one. |
 | `delete(SessionId $id): bool` | Removes the session under the ID, and returns whether there was one. |
 
-`replace()` and `delete()` have to check and change in one step, because the manager relies on their answer when
+`replace()`, `touch()`, and `delete()` have to check and change in one step, because the manager relies on their answer when
 requests run at the same time. A database store, for example, runs one `UPDATE` or `DELETE` and returns whether it
 affected a row; a store that reads first and writes afterwards can bring back a session another request just deleted.
 The manager only calls `write()` for an ID it has just generated.

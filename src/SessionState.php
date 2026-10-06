@@ -18,5 +18,6 @@ final class SessionState
         public SessionId $id,
         public ?SessionId $storedId,
         public array $values = [],
+        public bool $changed = false,
     ) {}
 }
