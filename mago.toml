@@ -119,11 +119,11 @@ enabled = false
 [linter.rules.too-many-properties]
 enabled = false
 
-# The package depends on nothing beyond PHP; add a dependency here when the package requires one. Tests may use
-# anything.
+# The package depends on the PSR-20 clock interface beyond PHP; add a dependency here when the package requires one.
+# Tests may use anything.
 [[guard.perimeter.rules]]
 namespace = "Dirthara\\Session\\"
-permit = ["@native", "Dirthara\\Session\\**"]
+permit = ["@native", "Dirthara\\Session\\**", "Psr\\Clock\\**"]
 
 [[guard.perimeter.rules]]
 namespace = "Dirthara\\Session\\Tests\\"

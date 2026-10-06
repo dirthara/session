@@ -7,8 +7,12 @@ description: Requirements and installation status for Dirthara Session.
 
 ## Requirements
 
-PHP 8.5 or later within the PHP 8 series is required. The package has no runtime
-Composer dependencies beyond PHP.
+PHP 8.5 or later within the PHP 8 series is required. Composer installs its one
+runtime dependency, a PSR interface package it uses:
+
+| Package | Provides |
+| --- | --- |
+| `psr/clock` `^1.0` | The PSR-20 clock interface, which sessions read the current time from. |
 
 ## Package installation
 
