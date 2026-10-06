@@ -12,6 +12,11 @@ values, decides when a session has expired, and moves a session to its new ID. A
 objects and `StoredSession` objects, each holding the session's string `payload`, the `createdAt` moment it was first
 stored, and the `expiresAt` moment it expires.
 
+The manager hands a store every moment in UTC, including the `$now` it prunes with, whatever time zone the clock
+returns. A store keeps them as UTC, or as a Unix timestamp, so that it compares them correctly in its own queries; a
+store that writes them as local times without a zone, such as into a `DATETIME` column, can prune sessions hours early
+or late once servers or the database run in another time zone.
+
 | Method | Does |
 | --- | --- |
 | `read(SessionId $id): ?StoredSession` | Returns the session under the ID, or `null` when there is none. |

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Dirthara\Session;
 
 use WeakMap;
+use DateTimeZone;
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use Dirthara\Session\ValueObject\Duration;
@@ -51,7 +52,7 @@ final readonly class SessionManager implements SessionManagerContract
             return null;
         }
 
-        if ($stored->expiresAt <= $this->clock->now()) {
+        if ($stored->expiresAt <= $this->now()) {
             return null;
         }
 
@@ -76,7 +77,7 @@ final readonly class SessionManager implements SessionManagerContract
             return $this->forget($state);
         }
 
-        $now = $this->clock->now();
+        $now = $this->now();
         $createdAt = $state->createdAt ?? $now;
         $expiresAt = $this->expiry($now, $createdAt);
 
@@ -130,7 +131,7 @@ final readonly class SessionManager implements SessionManagerContract
      */
     public function prune(): int
     {
-        return $this->store->prune($this->clock->now());
+        return $this->store->prune($this->now());
     }
 
     /**
@@ -187,6 +188,11 @@ final readonly class SessionManager implements SessionManagerContract
         }
 
         return min($idle, $this->later($createdAt, $this->lifetime->absolute));
+    }
+
+    private function now(): DateTimeImmutable
+    {
+        return $this->clock->now()->setTimezone(new DateTimeZone('UTC'));
     }
 
     private function later(DateTimeImmutable $moment, Duration $duration): DateTimeImmutable

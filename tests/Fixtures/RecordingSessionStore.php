@@ -65,7 +65,7 @@ final class RecordingSessionStore implements SessionStore
 
     public function prune(DateTimeImmutable $now): int
     {
-        $this->calls[] = 'prune ' . $now->format('Y-m-d H:i:s.v');
+        $this->calls[] = 'prune ' . $now->format('Y-m-d H:i:s.v e');
 
         return $this->inner->prune($now);
     }

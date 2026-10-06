@@ -318,6 +318,54 @@ final class SessionManagerTest extends TestCase
     }
 
     #[Test]
+    public function it_stores_every_moment_in_utc_whatever_the_time_zone_of_the_clock(): void
+    {
+        $clock = new TestClock('2026-10-05 14:00:00.250 Europe/Amsterdam');
+        $manager = new SessionManager(
+            $this->store,
+            new SequentialSessionIdGenerator(),
+            new NativeSessionSerialiser(),
+            $clock,
+            new Lifetime(Duration::hours(2)),
+        );
+        $session = $manager->create();
+        $session->put('user', 42);
+
+        $manager->save($session);
+        $clock->advance('+30 minutes');
+        $manager->save($session);
+
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
+        self::assertNotNull($stored);
+        self::assertSame('2026-10-05 12:00:00.250 UTC', $stored->createdAt->format('Y-m-d H:i:s.v e'));
+        self::assertSame('2026-10-05 14:30:00.250 UTC', $stored->expiresAt->format('Y-m-d H:i:s.v e'));
+
+        $manager->prune();
+
+        self::assertSame('prune 2026-10-05 12:30:00.250 UTC', $this->store->calls[2]);
+    }
+
+    #[Test]
+    public function it_compares_a_stored_expiry_with_the_clock_across_time_zones(): void
+    {
+        $id = new SessionId('sessionid-0000000000000000000009');
+        $this->store->inner->write(
+            $id,
+            new StoredSession(
+                'a:1:{s:4:"user";i:42;}',
+                new DateTimeImmutable('2026-10-05 10:00:00 America/New_York'),
+                new DateTimeImmutable('2026-10-05 08:00:00.251 America/New_York'),
+            ),
+        );
+
+        self::assertNotNull($this->manager->load($id));
+
+        $this->clock->advance('+1 millisecond');
+
+        self::assertNull($this->manager->load($id));
+    }
+
+    #[Test]
     public function it_extends_the_lifetime_each_time_a_session_is_saved(): void
     {
         $session = $this->filled();
@@ -363,7 +411,7 @@ final class SessionManagerTest extends TestCase
         $this->clock->advance('+1 hour');
 
         self::assertSame(1, $this->manager->prune());
-        self::assertSame('prune 2026-10-05 14:00:00.250', $this->store->calls[2]);
+        self::assertSame('prune 2026-10-05 14:00:00.250 UTC', $this->store->calls[2]);
         self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
         self::assertNotNull($this->manager->load(new SessionId('sessionid-0000000000000000000002')));
     }

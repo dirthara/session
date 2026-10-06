@@ -67,8 +67,8 @@ final readonly class SystemClock implements ClockInterface
 }
 ```
 
-Tests can pass a clock that returns a fixed time and move it forward, so they do not have to wait for a session to
-expire.
+The clock can return any time zone: the manager converts every moment to UTC before it compares or stores it. Tests can
+pass a clock that returns a fixed time and move it forward, so they do not have to wait for a session to expire.
 
 ## 5. A manager
 
