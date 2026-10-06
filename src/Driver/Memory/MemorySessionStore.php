@@ -10,18 +10,23 @@ use Dirthara\Session\ValueObject\StoredSession;
 
 final class MemorySessionStore implements SessionStore
 {
+    /**
+     * @var array<string, StoredSession>
+     */
+    private array $sessions = [];
+
     public function read(SessionId $id): ?StoredSession
     {
-        // TODO: Implement read() method.
+        return $this->sessions[$id->value] ?? null;
     }
 
     public function write(SessionId $id, StoredSession $session): void
     {
-        // TODO: Implement write() method.
+        $this->sessions[$id->value] = $session;
     }
 
     public function delete(SessionId $id): void
     {
-        // TODO: Implement delete() method.
+        unset($this->sessions[$id->value]);
     }
 }
