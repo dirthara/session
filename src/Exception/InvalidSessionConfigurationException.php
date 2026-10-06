@@ -7,7 +7,10 @@ namespace Dirthara\Session\Exception;
 use Throwable;
 use InvalidArgumentException;
 
-class InvalidSessionConfigurationException extends InvalidArgumentException implements SessionException
+use function sprintf;
+use function get_debug_type;
+
+final class InvalidSessionConfigurationException extends InvalidArgumentException implements SessionException
 {
     use HasExceptionContext;
 
@@ -21,11 +24,24 @@ class InvalidSessionConfigurationException extends InvalidArgumentException impl
         $this->context = $context;
     }
 
+    public static function invalidLifetime(string $driver, int $milliseconds, int $maximum): self
+    {
+        return new self(
+            message: sprintf(
+                'Unable to configure the "%s" session: the lifetime has to be between 1 and %d milliseconds, %d given.',
+                self::printable($driver),
+                $maximum,
+                $milliseconds,
+            ),
+            context: ['driver' => self::printable($driver), 'lifetime' => $milliseconds, 'maximum' => $maximum],
+        );
+    }
+
     public static function missingOption(string $driver, string $key): self
     {
         return new self(
             message: sprintf(
-                'Unable to configure the "%s" cache: the option "%s" is required and has no default.',
+                'Unable to configure the "%s" session: the option "%s" is required and has no default.',
                 self::printable($driver),
                 self::printable($key),
             ),
@@ -37,7 +53,7 @@ class InvalidSessionConfigurationException extends InvalidArgumentException impl
     {
         return new self(
             message: sprintf(
-                'Unable to configure the "%s" cache: the option "%s" has to be of type %s, %s given.',
+                'Unable to configure the "%s" session: the option "%s" has to be of type %s, %s given.',
                 self::printable($driver),
                 self::printable($key),
                 $expected,
