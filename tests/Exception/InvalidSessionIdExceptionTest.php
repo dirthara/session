@@ -57,7 +57,7 @@ final class InvalidSessionIdExceptionTest extends TestCase
         $exception = InvalidSessionIdException::malformed(4);
 
         self::assertSame(
-            'Unable to use the session ID of 4 bytes: a session ID has to be 16 to 256 letters, digits, hyphens, or underscores.',
+            'Unable to use the session ID of 4 bytes: a session ID has to be 32 to 256 letters, digits, hyphens, or underscores.',
             $exception->getMessage(),
         );
         self::assertSame(['length' => 4], $exception->context);

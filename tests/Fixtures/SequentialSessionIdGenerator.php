@@ -17,6 +17,6 @@ final class SequentialSessionIdGenerator implements SessionIdGenerator
     {
         $this->generated++;
 
-        return new SessionId(sprintf('session-%08d', $this->generated));
+        return new SessionId(sprintf('sessionid-%022d', $this->generated));
     }
 }

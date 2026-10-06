@@ -17,7 +17,7 @@ use Dirthara\Session\Tests\Fixtures\SequentialSessionIdGenerator;
 #[UsesClass(SessionId::class)]
 final class SessionTest extends TestCase
 {
-    private const string ID = 'session-original';
+    private const string ID = 'sessionid-original-0000000000000';
 
     #[Test]
     public function it_carries_its_id_and_values(): void
@@ -110,7 +110,7 @@ final class SessionTest extends TestCase
 
         $session->regenerate();
 
-        self::assertSame('session-00000001', $session->id->value);
+        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
         self::assertSame([$original], $session->replacedIds);
         self::assertSame(['user' => 42], $session->values);
     }
@@ -123,8 +123,8 @@ final class SessionTest extends TestCase
         $session->regenerate();
         $session->regenerate();
 
-        self::assertSame('session-00000002', $session->id->value);
-        self::assertSame([self::ID, 'session-00000001'], [
+        self::assertSame('sessionid-0000000000000000000002', $session->id->value);
+        self::assertSame([self::ID, 'sessionid-0000000000000000000001'], [
             $session->replacedIds[0]->value,
             $session->replacedIds[1]->value,
         ]);
@@ -139,7 +139,7 @@ final class SessionTest extends TestCase
         $session->invalidate();
 
         self::assertSame([], $session->values);
-        self::assertSame('session-00000001', $session->id->value);
+        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
         self::assertSame([$original], $session->replacedIds);
     }
 
@@ -152,7 +152,7 @@ final class SessionTest extends TestCase
         $session->forgetReplacedIds();
 
         self::assertSame([], $session->replacedIds);
-        self::assertSame('session-00000001', $session->id->value);
+        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
     }
 
     /**

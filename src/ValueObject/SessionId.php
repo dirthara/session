@@ -17,8 +17,17 @@ final readonly class SessionId
     public function __construct(
         public string $value,
     ) {
-        if (preg_match('/^[A-Za-z0-9_-]{16,256}$/D', $value) !== 1) {
+        if (preg_match('/^[A-Za-z0-9_-]{32,256}$/D', $value) !== 1) {
             throw InvalidSessionIdException::malformed(strlen($value));
+        }
+    }
+
+    public static function tryFrom(string $value): ?self
+    {
+        try {
+            return new self($value);
+        } catch (InvalidSessionIdException) {
+            return null;
         }
     }
 }

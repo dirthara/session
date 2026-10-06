@@ -78,20 +78,12 @@ The package does not read or write cookies. At the start of a request, load the 
 or create one; at the end, save it and send its ID back:
 
 ```php
-use Dirthara\Session\Exception\InvalidSessionIdException;
 use Dirthara\Session\ValueObject\SessionId;
 
-$session = null;
 $cookie = $_COOKIE['session'] ?? null;
+$id = is_string($cookie) ? SessionId::tryFrom($cookie) : null;
 
-if (is_string($cookie)) {
-    try {
-        $session = $sessions->load(new SessionId($cookie));
-    } catch (InvalidSessionIdException) {
-        $session = null;
-    }
-}
-
+$session = $id === null ? null : $sessions->load($id);
 $session ??= $sessions->create();
 
 $session->put('last_seen', time());
@@ -107,8 +99,8 @@ setcookie('session', $session->id->value, [
 ]);
 ```
 
-`load()` returns `null` for an ID without a live session, and a cookie that is not a valid session ID throws an
-`InvalidSessionIdException`; both mean the visitor starts a new session. A visitor can therefore never choose their
+`load()` returns `null` for an ID without a live session, and `SessionId::tryFrom()` returns `null` for a cookie that
+is not a valid session ID; both mean the visitor starts a new session. A visitor can therefore never choose their
 own session ID: every new session gets one from the generator.
 
 Send the cookie after every save, because saving extends the session's lifetime, and because the ID changes when the

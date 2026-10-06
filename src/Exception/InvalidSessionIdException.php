@@ -27,7 +27,7 @@ final class InvalidSessionIdException extends InvalidArgumentException implement
     {
         return new self(
             message: sprintf(
-                'Unable to use the session ID of %d bytes: a session ID has to be 16 to 256 letters, digits, hyphens, or underscores.',
+                'Unable to use the session ID of %d bytes: a session ID has to be 32 to 256 letters, digits, hyphens, or underscores.',
                 $length,
             ),
             context: ['length' => $length],

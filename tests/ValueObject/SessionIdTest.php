@@ -28,8 +28,9 @@ final class SessionIdTest extends TestCase
     public static function validValues(): iterable
     {
         yield 'lowercase hexadecimal' => ['9f86d081884c7d659a2feaa0c55ad015'];
-        yield 'every permitted character' => ['AZaz09-_AZaz09-_'];
-        yield 'the shortest' => [str_repeat('a', times: 16)];
+        yield 'base64url' => ['n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is'];
+        yield 'every permitted character' => ['AZaz09-_AZaz09-_AZaz09-_AZaz09-_'];
+        yield 'the shortest' => [str_repeat('a', times: 32)];
         yield 'the longest' => [str_repeat('a', times: 256)];
     }
 
@@ -46,11 +47,12 @@ final class SessionIdTest extends TestCase
     public static function invalidValues(): iterable
     {
         yield 'empty' => [''];
-        yield 'one character too short' => [str_repeat('a', times: 15)];
+        yield 'one character too short' => [str_repeat('a', times: 31)];
         yield 'one character too long' => [str_repeat('a', times: 257)];
-        yield 'a path' => ['../../etc/passwd/aaaaaaa'];
-        yield 'a space' => ['9f86d081884c7d65 9a2feaa0c55ad015'];
-        yield 'a cookie separator' => ['9f86d081884c7d65;9a2feaa0c55ad015'];
+        yield 'a path' => ['../../etc/passwd/aaaaaaaaaaaaaaaa'];
+        yield 'too short to be hard to guess' => ['9f86d081884c7d65'];
+        yield 'a space' => ['9f86d081884c7d65 9a2feaa0c55ad01'];
+        yield 'a cookie separator' => ['9f86d081884c7d65;9a2feaa0c55ad01'];
         yield 'a trailing line feed' => ["9f86d081884c7d659a2feaa0c55ad015\n"];
         yield 'a multibyte character' => ['9f86d081884c7d659a2feaa0c55ad01é'];
     }
@@ -62,6 +64,20 @@ final class SessionIdTest extends TestCase
         $this->expectException(InvalidSessionIdException::class);
 
         new SessionId($value);
+    }
+
+    #[Test]
+    #[DataProvider('validValues')]
+    public function it_tries_a_valid_value(string $value): void
+    {
+        self::assertSame($value, SessionId::tryFrom($value)?->value);
+    }
+
+    #[Test]
+    #[DataProvider('invalidValues')]
+    public function it_tries_a_malformed_value_without_throwing(string $value): void
+    {
+        self::assertNull(SessionId::tryFrom($value));
     }
 
     #[Test]

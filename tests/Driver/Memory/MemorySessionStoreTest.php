@@ -18,9 +18,9 @@ use Dirthara\Session\Driver\Memory\MemorySessionStore;
 #[UsesClass(StoredSession::class)]
 final class MemorySessionStoreTest extends TestCase
 {
-    private const string FIRST_ID = '1111111111111111';
+    private const string FIRST_ID = '11111111111111111111111111111111';
 
-    private const string SECOND_ID = '2222222222222222';
+    private const string SECOND_ID = '22222222222222222222222222222222';
 
     #[Test]
     public function it_has_nothing_under_an_id_that_was_never_written(): void

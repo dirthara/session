@@ -59,7 +59,7 @@ final class SessionManagerTest extends TestCase
         $session = $this->manager->create();
 
         self::assertInstanceOf(Session::class, $session);
-        self::assertSame('session-00000001', $session->id->value);
+        self::assertSame('sessionid-0000000000000000000001', $session->id->value);
         self::assertSame([], $session->values);
         self::assertSame([], $this->store->calls);
     }
@@ -73,8 +73,8 @@ final class SessionManagerTest extends TestCase
     #[Test]
     public function it_loads_nothing_for_an_id_without_a_session(): void
     {
-        self::assertNull($this->manager->load(new SessionId('session-unknown1')));
-        self::assertSame(['read session-unknown1'], $this->store->calls);
+        self::assertNull($this->manager->load(new SessionId('sessionid-unknown-0000000000000001')));
+        self::assertSame(['read sessionid-unknown-0000000000000001'], $this->store->calls);
     }
 
     #[Test]
@@ -85,11 +85,11 @@ final class SessionManagerTest extends TestCase
         $session->put('flash', null);
         $this->manager->save($session);
 
-        $loaded = $this->manager->load(new SessionId('session-00000001'));
+        $loaded = $this->manager->load(new SessionId('sessionid-0000000000000000000001'));
 
         self::assertInstanceOf(Session::class, $loaded);
         self::assertNotSame($session, $loaded);
-        self::assertSame('session-00000001', $loaded->id->value);
+        self::assertSame('sessionid-0000000000000000000001', $loaded->id->value);
         self::assertSame(['user' => 42, 'flash' => null], $loaded->values);
     }
 
@@ -98,7 +98,7 @@ final class SessionManagerTest extends TestCase
     {
         $this->manager->save($this->manager->create());
 
-        $stored = $this->store->inner->read(new SessionId('session-00000001'));
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
 
         self::assertNotNull($stored);
         self::assertSame('2026-10-05 14:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
@@ -116,7 +116,7 @@ final class SessionManagerTest extends TestCase
 
         $manager->save($manager->create());
 
-        $stored = $this->store->inner->read(new SessionId('session-00000001'));
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
         self::assertSame('2026-10-05 12:00:01.750', $stored->expiresAt->format('Y-m-d H:i:s.v'));
     }
@@ -133,7 +133,7 @@ final class SessionManagerTest extends TestCase
 
         $manager->save($manager->create());
 
-        $stored = $this->store->inner->read(new SessionId('session-00000001'));
+        $stored = $this->store->inner->read(new SessionId('sessionid-0000000000000000000001'));
         self::assertNotNull($stored);
         self::assertSame('2027-11-09 12:00:00.250', $stored->expiresAt->format('Y-m-d H:i:s.v'));
     }
@@ -148,7 +148,7 @@ final class SessionManagerTest extends TestCase
         $this->manager->save($session);
         $this->clock->advance('+90 minutes');
 
-        self::assertNotNull($this->manager->load(new SessionId('session-00000001')));
+        self::assertNotNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
     }
 
     #[Test]
@@ -157,7 +157,7 @@ final class SessionManagerTest extends TestCase
         $this->manager->save($this->manager->create());
         $this->clock->advance('+2 hours -1 millisecond');
 
-        self::assertNotNull($this->manager->load(new SessionId('session-00000001')));
+        self::assertNotNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
     }
 
     #[Test]
@@ -166,10 +166,14 @@ final class SessionManagerTest extends TestCase
         $this->manager->save($this->manager->create());
         $this->clock->advance('+2 hours');
 
-        self::assertNull($this->manager->load(new SessionId('session-00000001')));
-        self::assertNull($this->store->inner->read(new SessionId('session-00000001')));
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
         self::assertSame(
-            ['write session-00000001', 'read session-00000001', 'delete session-00000001'],
+            [
+                'write sessionid-0000000000000000000001',
+                'read sessionid-0000000000000000000001',
+                'delete sessionid-0000000000000000000001',
+            ],
             $this->store->calls,
         );
     }
@@ -184,9 +188,9 @@ final class SessionManagerTest extends TestCase
         $session->regenerate();
         $this->manager->save($session);
 
-        self::assertNull($this->manager->load(new SessionId('session-00000001')));
-        self::assertSame(['user' => 42], $this->loaded('session-00000002')->values);
-        self::assertNull($this->store->inner->read(new SessionId('session-00000001')));
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame(['user' => 42], $this->loaded('sessionid-0000000000000000000002')->values);
+        self::assertNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000001')));
     }
 
     #[Test]
@@ -199,7 +203,11 @@ final class SessionManagerTest extends TestCase
         $this->manager->save($session);
 
         self::assertSame(
-            ['write session-00000003', 'delete session-00000001', 'delete session-00000002'],
+            [
+                'write sessionid-0000000000000000000003',
+                'delete sessionid-0000000000000000000001',
+                'delete sessionid-0000000000000000000002',
+            ],
             $this->store->calls,
         );
         self::assertInstanceOf(Session::class, $session);
@@ -216,7 +224,11 @@ final class SessionManagerTest extends TestCase
         $this->manager->save($session);
 
         self::assertSame(
-            ['write session-00000002', 'delete session-00000001', 'write session-00000002'],
+            [
+                'write sessionid-0000000000000000000002',
+                'delete sessionid-0000000000000000000001',
+                'write sessionid-0000000000000000000002',
+            ],
             $this->store->calls,
         );
     }
@@ -231,19 +243,19 @@ final class SessionManagerTest extends TestCase
         $session->invalidate();
         $this->manager->save($session);
 
-        self::assertNull($this->manager->load(new SessionId('session-00000001')));
-        self::assertSame([], $this->loaded('session-00000002')->values);
+        self::assertNull($this->manager->load(new SessionId('sessionid-0000000000000000000001')));
+        self::assertSame([], $this->loaded('sessionid-0000000000000000000002')->values);
     }
 
     #[Test]
     public function it_regenerates_a_loaded_session_with_its_own_generator(): void
     {
         $this->manager->save($this->manager->create());
-        $loaded = $this->loaded('session-00000001');
+        $loaded = $this->loaded('sessionid-0000000000000000000001');
 
         $loaded->regenerate();
 
-        self::assertSame('session-00000002', $loaded->id->value);
+        self::assertSame('sessionid-0000000000000000000002', $loaded->id->value);
     }
 
     #[Test]
@@ -257,11 +269,11 @@ final class SessionManagerTest extends TestCase
             $this->manager->save($session);
             self::fail('A failed write was not reported.');
         } catch (ContextualException) {
-            self::assertSame(['write session-00000002'], $this->store->calls);
+            self::assertSame(['write sessionid-0000000000000000000002'], $this->store->calls);
         }
 
         self::assertInstanceOf(Session::class, $session);
-        self::assertSame(['session-00000001'], [$session->replacedIds[0]->value]);
+        self::assertSame(['sessionid-0000000000000000000001'], [$session->replacedIds[0]->value]);
     }
 
     #[Test]
@@ -275,7 +287,7 @@ final class SessionManagerTest extends TestCase
             $this->manager->save($session);
             self::fail('A failed delete was not reported.');
         } catch (ContextualException) {
-            self::assertNotNull($this->store->inner->read(new SessionId('session-00000002')));
+            self::assertNotNull($this->store->inner->read(new SessionId('sessionid-0000000000000000000002')));
         }
 
         $this->store->throwingOperations = [];
@@ -283,10 +295,10 @@ final class SessionManagerTest extends TestCase
 
         self::assertSame(
             [
-                'write session-00000002',
-                'delete session-00000001',
-                'write session-00000002',
-                'delete session-00000001',
+                'write sessionid-0000000000000000000002',
+                'delete sessionid-0000000000000000000001',
+                'write sessionid-0000000000000000000002',
+                'delete sessionid-0000000000000000000001',
             ],
             $this->store->calls,
         );
@@ -298,7 +310,7 @@ final class SessionManagerTest extends TestCase
     public function it_refuses_to_save_a_session_it_did_not_create_or_load(): void
     {
         try {
-            $this->manager->save(new ForeignSession(new SessionId('session-foreign01')));
+            $this->manager->save(new ForeignSession(new SessionId('sessionid-foreign-0000000000000001')));
             self::fail('A foreign session was saved.');
         } catch (ForeignSessionException $exception) {
             self::assertSame(['class' => ForeignSession::class], $exception->context);

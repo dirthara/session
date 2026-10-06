@@ -39,7 +39,7 @@ final class MemorySessionDriverTest extends TestCase
         $configuration = new SessionConfiguration('memory', Duration::hours(2));
         $first = $driver->create($configuration);
         $second = $driver->create($configuration);
-        $id = new SessionId('1111111111111111');
+        $id = new SessionId('11111111111111111111111111111111');
 
         $first->write($id, new StoredSession(['user' => 42], new DateTimeImmutable('2026-10-05 14:00:00')));
 

@@ -7,7 +7,7 @@ description: What a valid session ID is, how IDs are generated, and how to carry
 
 ## Valid IDs
 
-A `SessionId` is 16 to 256 characters, each an ASCII letter, a digit, `-`, or `_`:
+A `SessionId` is 32 to 256 characters, each an ASCII letter, a digit, `-`, or `_`:
 
 ```php
 use Dirthara\Session\ValueObject\SessionId;
@@ -17,8 +17,16 @@ $id->value; // '9f86d081884c7d659a2feaa0c55ad015'
 ```
 
 Any other value throws an `InvalidSessionIdException`. Those characters are safe in a cookie, a URL, a file name, and
-a key for any store, so a store never has to escape an ID. The minimum length keeps out IDs too short to be hard to
-guess.
+a key for any store, so a store never has to escape an ID. The minimum length leaves room for 128 bits, written in
+hexadecimal, so an ID is long enough to be hard to guess. It cannot prove that an ID is random, though: that is up to
+the generator.
+
+`SessionId::tryFrom()` returns `null` instead of throwing, for values that are expected to be invalid now and then,
+such as a cookie:
+
+```php
+SessionId::tryFrom('not a session ID'); // null
+```
 
 A session ID is as good as a password for as long as its session lives: whoever presents it is treated as the visitor. The
 exception therefore states only the length of the value it refused, never the value.
@@ -40,7 +48,7 @@ Lowercase hexadecimal keeps two IDs apart in a store that compares keys without 
 database column with a case-insensitive collation.
 
 A generator of your own implements `Dirthara\Session\Contract\SessionIdGenerator`, and has to take its IDs from a
-cryptographically secure source with at least 64 bits of entropy.
+cryptographically secure source with at least 128 bits of entropy, and write them in at least 32 characters.
 
 ## IDs from a visitor
 
@@ -48,13 +56,8 @@ An ID from a cookie is untrusted input. Turning it into a `SessionId` validates 
 session when one is stored under it:
 
 ```php
-use Dirthara\Session\Exception\InvalidSessionIdException;
-
-try {
-    $session = $sessions->load(new SessionId($cookie));
-} catch (InvalidSessionIdException) {
-    $session = null;
-}
+$id = SessionId::tryFrom($cookie);
+$session = $id === null ? null : $sessions->load($id);
 
 $session ??= $sessions->create();
 ```
