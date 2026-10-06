@@ -78,8 +78,8 @@ level = "error"
 camel = true
 either = false
 # Test methods are snake_case under a #[Test] attribute, which this rule does not recognise: it only treats methods named
-# test* as tests. Their names are left to review. src/Testing ships the store contract tests for driver packages.
-exclude = ["tests/", "src/Testing/"]
+# test* as tests. Their names are left to review.
+exclude = ["tests/"]
 
 [linter.rules.property-name]
 enabled = true
@@ -125,19 +125,13 @@ enabled = false
 namespace = "Dirthara\\Session\\"
 permit = ["@native", "Dirthara\\Session\\**", "Psr\\Clock\\**"]
 
-# The store contract tests that driver packages extend are PHPUnit test cases.
-[[guard.perimeter.rules]]
-namespace = "Dirthara\\Session\\Testing\\"
-permit = ["@native", "Dirthara\\Session\\**", "PHPUnit\\**"]
-
 [[guard.perimeter.rules]]
 namespace = "Dirthara\\Session\\Tests\\"
 permit = ["@all"]
 
-# CS-1 §15: classes are final, except the store contract tests that driver packages extend.
+# CS-1 §15: classes are final.
 [[guard.structural.rules]]
 on = "Dirthara\\Session\\**"
-not-on = "Dirthara\\Session\\Testing\\**"
 target = "class"
 must-be-final = true
 reason = "Classes are final (CS-1 §15)."
@@ -156,17 +150,11 @@ must-implement = "Dirthara\\Session\\Exception\\SessionException"
 must-use-trait = "Dirthara\\Session\\Exception\\HasExceptionContext"
 reason = "Package exceptions implement SessionException and use HasExceptionContext (CS-7)."
 
-# CS-3: test classes are suffixed with Test. Store tests extend the shipped store contract tests, which extend TestCase.
+# CS-3: test classes are suffixed with Test.
 [[guard.structural.rules]]
 on = "Dirthara\\Session\\Tests\\**"
-not-on = "Dirthara\\Session\\Tests\\{Fixtures\\**,Driver\\Memory\\MemorySessionStoreTest}"
+not-on = "Dirthara\\Session\\Tests\\Fixtures\\**"
 target = "class"
 must-be-named = "*Test"
 must-extend = "PHPUnit\\Framework\\TestCase"
 reason = "Test classes are PHPUnit test cases suffixed with Test (CS-3)."
-
-[[guard.structural.rules]]
-on = "Dirthara\\Session\\Tests\\Driver\\Memory\\MemorySessionStoreTest"
-target = "class"
-must-extend = "Dirthara\\Session\\Testing\\SessionStoreTestCase"
-reason = "The memory store is tested against the store contract that every driver is tested against."

@@ -5,7 +5,7 @@
 # Dirthara Session
 
 Sessions for PHP and the Dirthara framework: a session manager with idle and absolute expiry, ID regeneration that
-concurrent requests cannot undo, serialisation, storage contracts with contract tests for drivers, and an in-memory
+concurrent requests cannot undo, serialisation, storage contracts with contract checks for drivers, and an in-memory
 driver.
 
 Usage guides and API documentation live in [`docs`](docs/intro.md), starting with

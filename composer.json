@@ -10,9 +10,6 @@
     "require-dev": {
         "phpunit/phpunit": "^13.0"
     },
-    "suggest": {
-        "phpunit/phpunit": "To test a session store of your own against the store contract with SessionStoreTestCase"
-    },
     "license": "MIT",
     "autoload": {
         "psr-4": {

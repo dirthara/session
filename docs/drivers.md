@@ -169,31 +169,52 @@ The store writes the payload as it is, and hands back exactly what it wrote. It 
 
 ## Testing a driver
 
-`Dirthara\Session\Testing\SessionStoreTestCase` holds the tests every store has to pass: reading and writing, keeping
+`Dirthara\Session\Testing\SessionStoreContract` holds the checks every store has to pass: reading and writing, keeping
 every byte of a payload and every moment to the millisecond, replacing, touching, and deleting only what is there, and
-pruning by expiry. The memory store is tested with it too. Extend it in the driver package's tests, and return a new,
-empty store from `createStore()`:
+pruning by expiry. The memory store is tested with it too. It does not depend on a test framework: `checks()` returns
+each check by name, and a check throws a `SessionStoreContractException` naming the expectation a store breaks.
+
+With PHPUnit, run every check on a new, empty store through a data provider:
 
 ```php
 use Dirthara\Session\Contract\SessionStore;
-use Dirthara\Session\Testing\SessionStoreTestCase;
+use Dirthara\Session\Testing\SessionStoreContract;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 #[CoversClass(DatabaseSessionStore::class)]
-final class DatabaseSessionStoreTest extends SessionStoreTestCase
+final class DatabaseSessionStoreTest extends TestCase
 {
-    protected function createStore(): SessionStore
+    /**
+     * @return iterable<string, array{Closure(SessionStore): void}>
+     */
+    public static function storeContract(): iterable
     {
-        return new DatabaseSessionStore(connection: $this->connection(), table: 'sessions');
+        foreach (new SessionStoreContract()->checks() as $name => $check) {
+            yield $name => [$check];
+        }
+    }
+
+    /**
+     * @param Closure(SessionStore): void $check
+     */
+    #[Test]
+    #[DataProvider('storeContract')]
+    public function it_keeps_the_store_contract(Closure $check): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $check(new DatabaseSessionStore(connection: $this->connection(), table: 'sessions'));
     }
 }
 ```
 
-Add the store's own tests to the same class, such as how it behaves when its backend is unavailable. The test case
-needs PHPUnit, which a driver package already has as a development dependency; this package only suggests it.
+Each check is its own test, named after what it checks, and a failing one reports the broken expectation as its
+message. Add the store's own tests to the same class, such as how it behaves when its backend is unavailable.
 
 :::note
-The contract tests run every operation one at a time, so they cannot prove that `replace()`, `touch()`, and `delete()`
-check and change in one step. Test that against the real backend, for example by deleting a session between two
-connections.
+The checks run every operation one at a time, so they cannot prove that `replace()`, `touch()`, and `delete()` check
+and change in one step. Test that against the real backend, for example by deleting a session between two connections.
 :::

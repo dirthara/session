@@ -24,7 +24,7 @@ application, so the package works with any HTTP layer.
 | `SessionFactory` | Creates a manager from a named driver and its configuration | [Stores and drivers](drivers.md) |
 | `SessionDriverRegistry` | Holds the drivers by name | [Stores and drivers](drivers.md) |
 | `MemorySessionDriver` | Creates a store that keeps its sessions in PHP memory | [Stores and drivers](drivers.md) |
-| `SessionStoreTestCase` | The tests every store has to pass, for driver packages | [Stores and drivers](drivers.md#testing-a-driver) |
+| `SessionStoreContract` | The checks every store has to pass, for testing driver packages | [Stores and drivers](drivers.md#testing-a-driver) |
 
 ```php
 use Dirthara\Session\Config\SessionConfiguration;

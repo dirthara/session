@@ -22,7 +22,7 @@ advisory crediting the reporter unless they prefer otherwise.
 ## Scope
 
 Report security issues in the session manager, sessions, session ID validation
-and generation, serialisation, the memory driver, the store contract tests,
+and generation, serialisation, the memory driver, the store contract checks,
 exception handling, or development configuration. That includes:
 
 - a generated ID that can be predicted;
