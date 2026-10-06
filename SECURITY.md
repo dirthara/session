@@ -2,10 +2,9 @@
 
 ## Supported versions
 
-| Version | Status |
-| --- | --- |
-| 0.1.x | Active development; unreleased |
-| Older | Unsupported |
+| Branch | Releases | Status |
+| --- | --- | --- |
+| `0.1` | 0.1.x | Active |
 
 While the package is pre-1.0, only the latest release line receives fixes.
 
@@ -22,10 +21,19 @@ advisory crediting the reporter unless they prefer otherwise.
 
 ## Scope
 
-This repository currently contains package infrastructure and no public
-implementation. Report security issues in this package's code or development
-configuration. As the package's behaviour is introduced, update this policy
-with its security boundaries.
+Report security issues in the session manager, sessions, session ID validation
+and generation, drivers, exception handling, or development configuration. That
+includes a generated ID that can be predicted, a valid session ID that can be
+forged or reused after it was replaced, a session that outlives its lifetime,
+and a session ID or session value that leaks into an exception.
+
+The package does not read or write cookies, authenticate visitors, or decide
+when a session ID has to be regenerated. Cookie attributes, regenerating the ID
+when a visitor's privileges change, and invalidating the session on logout are
+the application's responsibility; see [session IDs](docs/session-ids.md) and
+[sessions](docs/sessions.md). Sessions are not locked, so concurrent requests on
+one session overwrite each other's changes. How a store protects, serialises,
+and expires what it keeps belongs to the driver and its backend.
 
 Bugs in PHP or third-party dependencies should also be reported upstream.
 Application code and the sensitivity of data an application chooses to store

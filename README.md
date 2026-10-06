@@ -4,8 +4,11 @@
 
 # Dirthara Session
 
-Sessions for PHP and the Dirthara framework. This repository is the initial package scaffold; no public API or release is available yet. Usage
-documentation lives in [`docs`](docs/intro.md) and is published on the Dirthara documentation site at
+Sessions for PHP and the Dirthara framework: a session manager with sliding expiry, ID regeneration, storage
+contracts, and an in-memory driver.
+
+Usage guides and API documentation live in [`docs`](docs/intro.md), starting with
+[getting started](docs/getting-started.md). They are published on the Dirthara documentation site at
 <https://dirthara.github.io/docs/>, which documents every package in the framework.
 
 ## Installation
@@ -48,8 +51,7 @@ docker compose exec php composer test
 
 Tests belong in `tests`, under `Dirthara\Session\Tests`. Source belongs in `src`, under `Dirthara\Session`.
 
-The package starts with its exception interface, `Dirthara\Session\Exception\SessionException`, and the
-`HasExceptionContext` trait every exception uses to carry its context, both covered by tests.
+The unit suite covers the implementation and its failure handling.
 
 ## Code quality
 
@@ -92,8 +94,9 @@ The gate requires 100% line coverage of `src` and lists uncovered lines.
 
 ## Contributing
 
-Each supported version has its own branch, beginning with `0.1`; there is no `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for
-branching, release, and pull request requirements, and [AGENTS.md](AGENTS.md) for agent instructions.
+Each supported version has its own branch, and patch releases are tags on it; there is no `main`. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for branching, release, and pull request requirements, and [AGENTS.md](AGENTS.md)
+for agent instructions.
 
 ## Security
 
